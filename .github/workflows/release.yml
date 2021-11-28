@@ -36,7 +36,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: [audit, tests, version_check]
-    if: ${{needs.version_check.outputs.versionChanged == true}}
+    if: ${{needs.version_check.outputs.versionChanged == 'true'}}
     env:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
