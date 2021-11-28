@@ -46,7 +46,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    needs: [check, check-wasm]
+    needs: [check]
     steps:
       - uses: actions/checkout@v2
       - name: Install latest stable
