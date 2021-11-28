@@ -60,5 +60,3 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "${{needs.version_check.outputs.releaseVersion}}"
-          prerelease: true
-          fail_on_unmatched_files: true
