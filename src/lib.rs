@@ -70,7 +70,7 @@ mod tests {
         let input = "Hello: world";
         let request: String;
         let reply: String;
-        sscanf!(input, "{string}: {string}", request, reply);
+        sscanf!(input, "{string}: {}", request, reply);
         assert_eq!(request, "Hello");
         assert_eq!(reply, "world");
     }
@@ -91,6 +91,17 @@ mod tests {
         let request: i32;
         let reply: f32;
         sscanf!(input, "{} -> {}", request, reply);
+        assert_eq!(request, 5);
+        assert_eq!(reply, 5.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn wrong_format_string() {
+        let input = "5 -> 5.0";
+        let request: i32;
+        let reply: f32;
+        sscanf!(input, "{} -{> {}", request, reply);
         assert_eq!(request, 5);
         assert_eq!(reply, 5.0);
     }
