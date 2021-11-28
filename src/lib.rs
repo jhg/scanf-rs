@@ -27,10 +27,26 @@
 //!     println!("Insert product and price (product: price):");
 //!     sscanf!(input, "{}: {}", product, price);
 //!     println!("Price of {} is {:.2}", product, price);
-//!     assert_eq!(product, "Candy");
-//!     assert_eq!(price, 2.75);
+//! #   assert_eq!(product, "Candy");
+//! #   assert_eq!(price, 2.75);
 //! }
 //! ```
+//!
+//! It's possible to indicate the type in the format string:
+//!
+//! ```no_run
+//! # use scanf::scanf;
+//! # fn main() {
+//!     let product: String;
+//!     let price: f32;
+//!     println!("Insert product and price (product: price):");
+//!     scanf!("{string}: {f32}", product, price);
+//! #    println!("Price of {} is {:.2}", product, price);
+//! # }
+//! ```
+//!
+//! Examples has been compiled and `sscanf`'s examples also ran as tests.
+//! If you have problems using the example code, please, [create an issue](https://github.com/jhg/scanf-rs/issues?q=is%3Aissue).
 
 #[doc(hidden)]
 pub mod format;
