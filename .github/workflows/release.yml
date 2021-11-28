@@ -28,10 +28,10 @@ jobs:
           tagFormat: v${version}
 
   audit:
-    uses: jhg/scanf/.github/workflows/audit.yml@main
+    uses: jhg/scanf-rs/.github/workflows/audit.yml@main
 
   tests:
-    uses: jhg/scanf/.github/workflows/tests.yml@main
+    uses: jhg/scanf-rs/.github/workflows/tests.yml@main
 
   publish:
     runs-on: ubuntu-latest
