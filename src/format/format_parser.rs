@@ -2,7 +2,15 @@ use std::any::TypeId;
 
 use super::InputFormatToken;
 
-use nom::{error, IResult, branch::alt, bytes::complete::{tag, take_until}, character::complete::{alphanumeric0, char}, multi::many0, sequence::delimited};
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take_until},
+    character::complete::{alphanumeric0, char},
+    error,
+    multi::many0,
+    sequence::delimited,
+    IResult,
+};
 
 impl<'a> InputFormatToken<'a> {
     fn type_from_str(text: &'a str) -> Self {
@@ -29,25 +37,21 @@ pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
 }
 
 fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
-    alt((
-        type_format,
-        text,
-    ))(input)
+    alt((type_format, text))(input)
 }
 
 fn text(input: &str) -> IResult<&str, InputFormatToken> {
-    let (remaining, text) = alt((
-        tag("{{"),
-        tag("}}"),
-        take_until("{"),
-    ))(input)?;
+    let (remaining, text) = alt((tag("{{"), tag("}}"), take_until("{")))(input)?;
     return Ok((remaining, InputFormatToken::Text(text)));
 }
 
 fn type_format(input: &str) -> IResult<&str, InputFormatToken> {
     let (remaining, type_name) = delimited(char('{'), alphanumeric0, char('}'))(input)?;
     match InputFormatToken::type_from_str(type_name) {
-        InputFormatToken::Text(_) => Err(nom::Err::Failure(error::Error { input, code: error::ErrorKind::AlphaNumeric })),
+        InputFormatToken::Text(_) => Err(nom::Err::Failure(error::Error {
+            input,
+            code: error::ErrorKind::AlphaNumeric,
+        })),
         type_format => Ok((remaining, type_format)),
     }
 }

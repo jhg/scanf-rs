@@ -26,7 +26,13 @@ impl<'a> InputFormat<'a> {
         let mut input_elements = Vec::new();
         for element in &self.elements {
             match *element {
-                InputFormatToken::Type(_) | InputFormatToken::GenericType => if capture { panic!("oooo") } else { capture = true },
+                InputFormatToken::Type(_) | InputFormatToken::GenericType => {
+                    if capture {
+                        panic!("oooo")
+                    } else {
+                        capture = true
+                    }
+                }
                 InputFormatToken::Text(text) => {
                     if capture {
                         capture = false;
