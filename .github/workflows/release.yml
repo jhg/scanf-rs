@@ -36,7 +36,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: [audit, tests, version_check]
-    if: ${{needs.version_check.outputs.versionChanged && needs.version_check.outputs.releaseVersion}}
+    if: ${{needs.version_check.outputs.versionChanged == true}}
     env:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
@@ -48,3 +48,9 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Publish to crates.io
         run: cargo publish --verbose
+      - name: Release & tag
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "${{needs.version_check.outputs.releaseVersion}}"
+          prerelease: true
+          fail_on_unmatched_files: true
