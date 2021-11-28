@@ -54,8 +54,6 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - name: Set up wasm-pack
-        uses: jetli/wasm-pack-action@v0.3.0
       - uses: Swatinem/rust-cache@v1
       - name: Build tests
         run: cargo test --no-run
