@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::needless_return)]
+
 //! # scanf! & sscanf!
 //!
 //! Similar to C's but without undefined behavior. **Currently it'll panic if an error occur**,
@@ -9,41 +11,35 @@
 //! ```no_run
 //! use scanf::scanf;
 //!
-//! fn main() {
-//!     let product: String;
-//!     let price: f32;
-//!     println!("Insert product and price (product: price):");
-//!     scanf!("{}: {}", product, price);
-//!     println!("Price of {} is {:.2}", product, price);
-//! }
+//! let product: String;
+//! let price: f32;
+//! println!("Insert product and price (product: price):");
+//! scanf!("{}: {}", product, price);
+//! println!("Price of {} is {:.2}", product, price);
 //! ```
 //!
 //! ```
 //! use scanf::sscanf;
 //!
-//! fn main() {
-//!     let input: &str = "Candy: 2.75";
-//!     let product: String;
-//!     let price: f32;
-//!     println!("Insert product and price (product: price):");
-//!     sscanf!(input, "{}: {}", product, price);
-//!     println!("Price of {} is {:.2}", product, price);
-//! #   assert_eq!(product, "Candy");
-//! #   assert_eq!(price, 2.75);
-//! }
+//! let input: &str = "Candy: 2.75";
+//! let product: String;
+//! let price: f32;
+//! println!("Insert product and price (product: price):");
+//! sscanf!(input, "{}: {}", product, price);
+//! println!("Price of {} is {:.2}", product, price);
+//! # assert_eq!(product, "Candy");
+//! # assert_eq!(price, 2.75);
 //! ```
 //!
 //! It's possible to indicate the type in the format string:
 //!
 //! ```no_run
 //! # use scanf::scanf;
-//! # fn main() {
-//!     let product: String;
-//!     let price: f32;
-//!     println!("Insert product and price (product: price):");
-//!     scanf!("{string}: {f32}", product, price);
-//! #    println!("Price of {} is {:.2}", product, price);
-//! # }
+//! let product: String;
+//! let price: f32;
+//! println!("Insert product and price (product: price):");
+//! scanf!("{string}: {f32}", product, price);
+//! # println!("Price of {} is {:.2}", product, price);
 //! ```
 //!
 //! Examples has been compiled and `sscanf`'s examples also ran as tests.
