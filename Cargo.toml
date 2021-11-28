@@ -1,0 +1,18 @@
+[package]
+name = "scanf"
+description = "Macros to parse simple text inputs"
+version = "0.1.1"
+license = "Unlicense"
+repository = "https://github.com/jhg/scanf-rs"
+edition = "2021"
+
+[dependencies]
+nom = "7.1"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
