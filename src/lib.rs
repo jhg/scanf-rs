@@ -1,19 +1,34 @@
 //! # scanf! & sscanf!
-//! 
+//!
 //! Similar to C's but without undefined behavior. Currently it'll panic if an error occur,
 //! but to return a `Result` is in progress.
-//! 
+//!
 //! ## Examples
-//! 
+//!
 //! ```no_run
 //! use scanf::scanf;
-//! 
+//!
 //! fn main() {
 //!     let product: String;
 //!     let price: f32;
 //!     println!("Insert product and price (product: price):");
 //!     scanf!("{}: {}", product, price);
 //!     println!("Price of {} is {:.2}", product, price);
+//! }
+//! ```
+//!
+//! ```
+//! use scanf::sscanf;
+//!
+//! fn main() {
+//!     let input: &str = "Candy: 2.75";
+//!     let product: String;
+//!     let price: f32;
+//!     println!("Insert product and price (product: price):");
+//!     sscanf!(input, "{}: {}", product, price);
+//!     println!("Price of {} is {:.2}", product, price);
+//!     assert_eq!(product, "Candy");
+//!     assert_eq!(price, 2.75);
 //! }
 //! ```
 
