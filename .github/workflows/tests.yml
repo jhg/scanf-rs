@@ -59,3 +59,26 @@ jobs:
         run: cargo test --no-run
       - name: Run tests
         run: cargo test --verbose
+
+  benchmark:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    needs: [check]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: Swatinem/rust-cache@v1
+      - name: Build benchmarks
+        run: cargo bench --no-run
+      - name: Run benchmarks
+        uses: jasonwilliams/criterion-compare-action@move_to_actions
+        with:
+          branchName: ${{ github.base_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
