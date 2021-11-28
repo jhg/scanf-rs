@@ -1,15 +1,6 @@
 name: Tests
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - ".vscode/**"
-      - ".gitignore"
-      - "**/*.md"
-      - "*.code-workspace"
-      - ".github/**"
   pull_request:
     branches: [main]
     paths-ignore:

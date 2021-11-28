@@ -3,7 +3,8 @@ name: Security audit
 on:
   schedule:
     - cron: "0 0 * * 1" # At 00:00 on Monday.
-  push:
+  pull_request:
+    branches: [main]
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
