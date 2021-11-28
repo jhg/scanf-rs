@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       releaseVersion: ${{steps.version_check.outputs.releaseVersion}}
-      versionChanged: ${{steps.version-check.outputs.versionChanged}}
+      versionChanged: ${{steps.version_check.outputs.versionChanged}}
     steps:
       - uses: actions/checkout@v2
       - run: git fetch --all --tags
       - name: Check Release Version
         uses: thebongy/version-check@v1
-        id: version-check
+        id: version_check
         with:
           failBuild: false
           file: Cargo.toml
