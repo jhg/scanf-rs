@@ -1,0 +1,22 @@
+{
+    "recommendations": [
+      "belfz.search-crates-io",
+      "bungcip.better-toml",
+      "connorshea.vscode-test-explorer-status-bar",
+      "eamodio.gitlens",
+      "emilylilylime.vscode-test-explorer-diagnostics",
+      "gruntfuggly.todo-tree",
+      "hbenl.vscode-test-explorer",
+      "jscearcy.rust-doc-viewer",
+      "kevinkassimo.cargo-toml-snippets",
+      "matklad.rust-analyzer",
+      "serayuzgur.crates",
+      "streetsidesoftware.code-spell-checker",
+      "swellaby.vscode-rust-test-adapter",
+      "vadimcn.vscode-lldb",
+    ],
+    // List of extensions recommended by VS Code that should not be recommended for users of this workspace.
+    "unwantedRecommendations": [
+      "rust-lang.rust",
+    ]
+  }
