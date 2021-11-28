@@ -3,6 +3,14 @@ name: Release
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "doc/**"
+      - ".vscode/**"
+      - ".gitignore"
+      - "**/*.md"
+      - "*.code-workspace"
+      - ".github/**"
   workflow_dispatch:
 
 env:
