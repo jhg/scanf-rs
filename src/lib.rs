@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! # scanf! & sscanf!
 //!
 //! Similar to C's but without undefined behavior. **Currently it'll panic if an error occur**,
