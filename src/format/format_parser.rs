@@ -41,8 +41,20 @@ fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
 }
 
 fn text(input: &str) -> IResult<&str, InputFormatToken> {
-    let (remaining, text) = alt((tag("{{"), tag("}}"), take_until("{")))(input)?;
-    return Ok((remaining, InputFormatToken::Text(text)));
+    let (remaining, text) = alt((
+        tag("{{"),
+        tag("}}"),
+        take_until("{{"),
+        take_until("}}"),
+        take_until("{"),
+        take_until("}"),
+    ))(input)?;
+    let text_token = InputFormatToken::Text(match text {
+        "{{" => "{",
+        "}}" => "}",
+        text => text,
+    });
+    return Ok((remaining, text_token));
 }
 
 fn type_format(input: &str) -> IResult<&str, InputFormatToken> {
