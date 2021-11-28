@@ -1,7 +1,7 @@
 //! # scanf! & sscanf!
 //!
-//! Similar to C's but without undefined behavior. Currently it'll panic if an error occur,
-//! but to return a `Result` is in progress.
+//! Similar to C's but without undefined behavior. **Currently it'll panic if an error occur**,
+//! but to **return a `Result` is in progress**.
 //!
 //! ## Examples
 //!
