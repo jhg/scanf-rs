@@ -71,11 +71,11 @@ fn text(input: &str) -> IResult<&str, InputFormatToken> {
 fn type_format(input: &str) -> IResult<&str, InputFormatToken> {
     let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
     let (remaining, type_name) = type_parser(input)?;
-    if let Ok(type_token) = InputFormatToken::type_from_str(type_name) {
-        return Ok((remaining, type_token));
-    }
-    return Err(nom::Err::Failure(error::Error {
-        input: type_name,
-        code: error::ErrorKind::Tag,
-    }));
+    return match InputFormatToken::type_from_str(type_name) {
+        Ok(type_token) => Ok((remaining, type_token)),
+        Err(_) => Err(nom::Err::Failure(error::Error {
+            input: type_name,
+            code: error::ErrorKind::Tag,
+        })),
+    };
 }
