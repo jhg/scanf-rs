@@ -42,6 +42,16 @@
 //! # println!("Price of {} is {:.2}", product, price);
 //! ```
 //!
+//! Also escape brackets:
+//!
+//! ```
+//! # use scanf::sscanf;
+//! let input: &str = "{Candy}";
+//! let product: String;
+//! sscanf!(input, "{{{}}}", product);
+//! assert_eq!(product, "Candy");
+//! ```
+//!
 //! Examples has been compiled and `sscanf`'s examples also ran as tests.
 //! If you have problems using the example code, please, [create an issue](https://github.com/jhg/scanf-rs/issues?q=is%3Aissue).
 
