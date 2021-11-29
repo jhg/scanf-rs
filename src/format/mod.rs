@@ -56,3 +56,21 @@ impl<'a> InputFormat<'a> {
         return input_elements;
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_simple_generic_formatter() {
+        let formatter = InputFormat::new("{} -> {}");
+        assert_eq!(
+            formatter.elements,
+            vec![
+                InputFormatToken::GenericType,
+                InputFormatToken::Text(" -> "),
+                InputFormatToken::GenericType
+            ]
+        )
+    }
+}
