@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::io;
 
 mod format_parser;
 
@@ -15,9 +16,14 @@ pub struct InputFormat<'a> {
 }
 
 impl<'a> InputFormat<'a> {
-    pub fn new(input: &'a str) -> Self {
-        let (_, elements) = format_parser::tokenize(input).unwrap();
-        return Self { elements };
+    pub fn new(input: &'a str) -> io::Result<Self> {
+        let (_, elements) = format_parser::tokenize(input).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Invalid input format string: {}", e),
+            )
+        })?;
+        return Ok(Self { elements });
     }
 
     pub fn input_strings(&self, input: &'a str) -> Vec<&'a str> {
@@ -63,7 +69,7 @@ mod test {
 
     #[test]
     fn test_simple_generic_formatter() {
-        let formatter = InputFormat::new("{} -> {}");
+        let formatter = InputFormat::new("{} -> {}").unwrap();
         assert_eq!(
             formatter.elements,
             vec![
@@ -77,14 +83,14 @@ mod test {
     #[test]
     #[should_panic]
     fn test_wrong_formatter_unescaped_open_bracket() {
-        let formatter = InputFormat::new("{} -{> {}");
+        let formatter = InputFormat::new("{} -{> {}").unwrap();
         println!("{:?}", formatter);
     }
 
     #[test]
     #[should_panic]
     fn test_wrong_formatter_unescaped_close_bracket() {
-        let formatter = InputFormat::new("{} -}> {}");
+        let formatter = InputFormat::new("{} -}> {}").unwrap();
         println!("{:?}", formatter);
     }
 }
