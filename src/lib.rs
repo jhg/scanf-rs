@@ -93,7 +93,7 @@ mod tests {
         let input = "Hello: world";
         let request: String;
         let reply: String;
-        sscanf!(input, "{string}: {}", request, reply);
+        sscanf!(input, "{string}: {string}", request, reply);
         assert_eq!(request, "Hello");
         assert_eq!(reply, "world");
     }
@@ -132,6 +132,14 @@ mod tests {
         let input = "{Hello world}";
         let message: String;
         sscanf!(input, "{{{string}}}", message);
+        assert_eq!(message, "Hello world");
+    }
+
+    #[test]
+    fn string_generic_between_brackets_ignored() {
+        let input = "{Hello world}";
+        let message: String;
+        sscanf!(input, "{{{}}}", message);
         assert_eq!(message, "Hello world");
     }
 }
