@@ -73,4 +73,18 @@ mod test {
             ]
         )
     }
+
+    #[test]
+    #[should_panic]
+    fn test_wrong_formatter_unescaped_open_bracket() {
+        let formatter = InputFormat::new("{} -{> {}");
+        println!("{:?}", formatter);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_wrong_formatter_unescaped_close_bracket() {
+        let formatter = InputFormat::new("{} -}> {}");
+        println!("{:?}", formatter);
+    }
 }

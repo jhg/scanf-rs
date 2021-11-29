@@ -111,11 +111,17 @@ mod tests {
     #[test]
     #[should_panic]
     fn wrong_format_string() {
-        let input = "5 -> 5.0";
-        let request: i32;
-        let reply: f32;
-        sscanf!(input, "{} -{> {}", request, reply);
-        assert_eq!(request, 5);
-        assert_eq!(reply, 5.0);
+        let input = "5 -> 5.0 <-";
+        let _request: i32;
+        let _reply: f32;
+        sscanf!(input, "{} -}> {} <-", _request, _reply);
+    }
+
+    #[test]
+    fn string_between_brackets_ignored() {
+        let input = "{Hello world}";
+        let message: String;
+        sscanf!(input, "{{{string}}}", message);
+        assert_eq!(message, "Hello world");
     }
 }

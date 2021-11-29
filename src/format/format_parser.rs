@@ -6,24 +6,27 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::{alphanumeric0, char},
-    error,
+    error::{self, context},
     multi::many0,
     sequence::delimited,
     IResult,
 };
 
 impl<'a> InputFormatToken<'a> {
-    fn type_from_str(text: &'a str) -> Self {
+    fn type_from_str(text: &'a str) -> std::io::Result<Self> {
         match text {
-            "i32" => Self::Type(TypeId::of::<i32>()),
-            "u32" => Self::Type(TypeId::of::<u32>()),
-            "f32" => Self::Type(TypeId::of::<f32>()),
-            "i64" => Self::Type(TypeId::of::<i64>()),
-            "u64" => Self::Type(TypeId::of::<u64>()),
-            "f64" => Self::Type(TypeId::of::<f64>()),
-            "string" => Self::Type(TypeId::of::<String>()),
-            "" => Self::GenericType,
-            text => Self::Text(text), // TODO: Refactor this to return result and handle it.
+            "i32" => Ok(Self::Type(TypeId::of::<i32>())),
+            "u32" => Ok(Self::Type(TypeId::of::<u32>())),
+            "f32" => Ok(Self::Type(TypeId::of::<f32>())),
+            "i64" => Ok(Self::Type(TypeId::of::<i64>())),
+            "u64" => Ok(Self::Type(TypeId::of::<u64>())),
+            "f64" => Ok(Self::Type(TypeId::of::<f64>())),
+            "string" => Ok(Self::Type(TypeId::of::<String>())),
+            "" => Ok(Self::GenericType),
+            text => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("type {:?} is not accepted for format input", text),
+            )),
         }
     }
 }
@@ -52,18 +55,27 @@ fn text(input: &str) -> IResult<&str, InputFormatToken> {
     let text_token = InputFormatToken::Text(match text {
         "{{" => "{",
         "}}" => "}",
-        text => text,
+        text => {
+            if text.contains("}") {
+                return Err(nom::Err::Failure(error::Error {
+                    input: text,
+                    code: error::ErrorKind::Tag,
+                }));
+            }
+            text
+        }
     });
     return Ok((remaining, text_token));
 }
 
 fn type_format(input: &str) -> IResult<&str, InputFormatToken> {
-    let (remaining, type_name) = delimited(char('{'), alphanumeric0, char('}'))(input)?;
-    match InputFormatToken::type_from_str(type_name) {
-        InputFormatToken::Text(_) => Err(nom::Err::Failure(error::Error {
-            input,
-            code: error::ErrorKind::AlphaNumeric,
-        })),
-        type_format => Ok((remaining, type_format)),
+    let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
+    let (remaining, type_name) = type_parser(input)?;
+    if let Ok(type_token) = InputFormatToken::type_from_str(type_name) {
+        return Ok((remaining, type_token));
     }
+    return Err(nom::Err::Failure(error::Error {
+        input: type_name,
+        code: error::ErrorKind::Tag,
+    }));
 }
