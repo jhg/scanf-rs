@@ -60,6 +60,33 @@ fn sscanf_benchmark(c: &mut Criterion) {
         })
     });
 
+    let input = black_box("Candy");
+    group.bench_function("sscanf string", |b| {
+        b.iter(|| {
+            let product: String;
+            sscanf!(input, "{}", product);
+            black_box(product);
+        })
+    });
+
+    let input = black_box("{Candy}");
+    group.bench_function("sscanf string with brackets", |b| {
+        b.iter(|| {
+            let product: String;
+            sscanf!(input, "{}", product);
+            black_box(product);
+        })
+    });
+
+    let input = black_box("{Candy}");
+    group.bench_function("sscanf string with brackets ignored", |b| {
+        b.iter(|| {
+            let product: String;
+            sscanf!(input, "{{{}}}", product);
+            black_box(product);
+        })
+    });
+
     let input = black_box("Candy -> 2.75");
     group.bench_function("sscanf string & f64", |b| {
         b.iter(|| {
