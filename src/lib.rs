@@ -67,19 +67,17 @@ macro_rules! sscanf {
                 let mut inputs_iter = inputs.iter().map(|input| input.trim());
                 let mut result = Ok(());
                 $(
-                    if result.is_ok() {
-                        if let Some(input) = inputs_iter.next() {
-                            match input.parse() {
-                                Ok(input_parsed) => $var = input_parsed,
-                                Err(error) => {
-                                    let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
-                                    result = result.and(Err(invalid_input_error));
-                                }
+                    if let Some(input) = inputs_iter.next() {
+                        match input.parse() {
+                            Ok(input_parsed) => $var = input_parsed,
+                            Err(error) => {
+                                let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
+                                result = result.and(Err(invalid_input_error));
                             }
-                        } else {
-                            let not_enough_inputs_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, "There is not enough input placeholders for all variables.");
-                            result = result.and(Err(not_enough_inputs_error));
                         }
+                    } else {
+                        let not_enough_inputs_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, "There is not enough input placeholders for all variables.");
+                        result = result.and(Err(not_enough_inputs_error));
                     }
                 )*
                 result
