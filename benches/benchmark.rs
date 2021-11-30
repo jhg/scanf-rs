@@ -5,8 +5,8 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use scanf::sscanf;
 
 fn sscanf_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("sample-size-2500");
-    group.sample_size(2_500);
+    let mut group = c.benchmark_group("sample-size-1500");
+    group.sample_size(1_500);
 
     let input = black_box("-5");
     group.bench_function("sscanf i32", |b| {
