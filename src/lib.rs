@@ -3,8 +3,7 @@
 
 //! # scanf! & sscanf!
 //!
-//! Similar to C's but without undefined behavior. **Currently it'll panic if an error occur**,
-//! but to **return a `Result` is in progress**.
+//! Similar to C's but with memory safety.
 //!
 //! ## Examples
 //!
@@ -76,7 +75,10 @@ macro_rules! sscanf {
                             }
                         }
                     } else {
-                        let not_enough_inputs_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, "There is not enough input placeholders for all variables.");
+                        let not_enough_inputs_error = std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "There is not enough input placeholders for all variables."
+                        );
                         result = result.and(Err(not_enough_inputs_error));
                     }
                 )*
