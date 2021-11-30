@@ -17,10 +17,10 @@ pub struct InputFormat<'a> {
 
 impl<'a> InputFormat<'a> {
     pub fn new(input: &'a str) -> io::Result<Self> {
-        let (_, elements) = format_parser::tokenize(input).map_err(|e| {
+        let (_, elements) = format_parser::tokenize(input).map_err(|error| {
             io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Invalid input format string: {}", e),
+                format!("Invalid input format string: {}", error),
             )
         })?;
         return Ok(Self { elements });
@@ -34,24 +34,29 @@ impl<'a> InputFormat<'a> {
             match *element {
                 InputFormatToken::Type(_) | InputFormatToken::GenericType => {
                     if capture {
-                        panic!("oooo")
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "Can not split input correctly because the consecutive placeholder",
+                        ));
                     } else {
-                        capture = true
+                        capture = true;
                     }
                 }
                 InputFormatToken::Text(text) => {
-                    if capture {
-                        capture = false;
-                        if let Some(a) = input.find(text) {
-                            let b = &input[..a];
-                            input_elements.push(b);
-                            input = input.strip_prefix(b).unwrap();
-                            input = input.strip_prefix(text).unwrap();
+                    if let Some(text_start_offset) = input.find(text) {
+                        if capture {
+                            capture = false;
+                            let input_element = &input[..text_start_offset];
+                            input_elements.push(input_element);
+                            input = &input[(text_start_offset + text.len())..];
                         } else {
-                            panic!("");
+                            input = &input[text.len()..];
                         }
                     } else {
-                        input = input.strip_prefix(text).unwrap();
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            format!("Can not find text separator {:?}", text),
+                        ));
                     }
                 }
             }
@@ -68,14 +73,29 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_simple_generic_formatter() {
+    fn test_formatter_simple_generic() {
+        let formatter = InputFormat::new("{}").unwrap();
+        assert_eq!(formatter.elements, vec![InputFormatToken::GenericType])
+    }
+
+    #[test]
+    fn test_formatter_two_generic_without_separator() {
+        let formatter = InputFormat::new("{}{}").unwrap();
+        assert_eq!(
+            formatter.elements,
+            vec![InputFormatToken::GenericType, InputFormatToken::GenericType,]
+        )
+    }
+
+    #[test]
+    fn test_formatter_two_generic_with_separator() {
         let formatter = InputFormat::new("{} -> {}").unwrap();
         assert_eq!(
             formatter.elements,
             vec![
                 InputFormatToken::GenericType,
                 InputFormatToken::Text(" -> "),
-                InputFormatToken::GenericType
+                InputFormatToken::GenericType,
             ]
         )
     }
@@ -83,14 +103,12 @@ mod test {
     #[test]
     #[should_panic]
     fn test_wrong_formatter_unescaped_open_bracket() {
-        let formatter = InputFormat::new("{} -{> {}").unwrap();
-        println!("{:?}", formatter);
+        InputFormat::new("{} -{> {}").unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_wrong_formatter_unescaped_close_bracket() {
-        let formatter = InputFormat::new("{} -}> {}").unwrap();
-        println!("{:?}", formatter);
+        InputFormat::new("{} -}> {}").unwrap();
     }
 }
