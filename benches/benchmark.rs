@@ -9,7 +9,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("-5");
     group.bench_function("sscanf i32", |b| {
         b.iter(|| {
-            let first_number: i32;
+            let mut first_number: i32 = 0;
             sscanf!(input, "{}", first_number);
             black_box(first_number);
         })
@@ -18,7 +18,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("-5");
     group.bench_function("sscanf i64", |b| {
         b.iter(|| {
-            let first_number: i64;
+            let mut first_number: i64 = 0;
             sscanf!(input, "{}", first_number);
             black_box(first_number);
         })
@@ -27,7 +27,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("5");
     group.bench_function("sscanf u32", |b| {
         b.iter(|| {
-            let first_number: u32;
+            let mut first_number: u32 = 0;
             sscanf!(input, "{}", first_number);
             black_box(first_number);
         })
@@ -36,7 +36,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("5");
     group.bench_function("sscanf u64", |b| {
         b.iter(|| {
-            let first_number: u64;
+            let mut first_number: u64 = 0;
             sscanf!(input, "{}", first_number);
             black_box(first_number);
         })
@@ -45,7 +45,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("2.5");
     group.bench_function("sscanf f32", |b| {
         b.iter(|| {
-            let first_number: f32;
+            let mut first_number: f32 = 0.0;
             sscanf!(input, "{}", first_number);
             black_box(first_number);
         })
@@ -54,7 +54,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("2.5");
     group.bench_function("sscanf f64", |b| {
         b.iter(|| {
-            let first_number: f64;
+            let mut first_number: f64 = 0.0;
             sscanf!(input, "{}", first_number);
             black_box(first_number);
         })
@@ -63,7 +63,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("Candy");
     group.bench_function("sscanf string", |b| {
         b.iter(|| {
-            let product: String;
+            let mut product: String = String::new();
             sscanf!(input, "{}", product);
             black_box(product);
         })
@@ -72,7 +72,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("{Candy}");
     group.bench_function("sscanf string with brackets", |b| {
         b.iter(|| {
-            let product: String;
+            let mut product: String = String::new();
             sscanf!(input, "{}", product);
             black_box(product);
         })
@@ -81,7 +81,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("{Candy}");
     group.bench_function("sscanf string with brackets ignored", |b| {
         b.iter(|| {
-            let product: String;
+            let mut product: String = String::new();
             sscanf!(input, "{{{}}}", product);
             black_box(product);
         })
@@ -90,8 +90,8 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("Candy -> 2.75");
     group.bench_function("sscanf string & f64", |b| {
         b.iter(|| {
-            let product: String;
-            let price: f64;
+            let mut product: String = String::new();
+            let mut price: f64 = 0.0;
             sscanf!(input, "{} -> {}", product, price);
             black_box(product);
             black_box(price);
@@ -101,8 +101,8 @@ fn sscanf_benchmark(c: &mut Criterion) {
     let input = black_box("5 -> 2.5");
     group.bench_function("sscanf u32 & f64", |b| {
         b.iter(|| {
-            let first_number: u32;
-            let second_number: f64;
+            let mut first_number: u32 = 0;
+            let mut second_number: f64 = 0.0;
             sscanf!(input, "{} -> {}", first_number, second_number);
             black_box(first_number);
             black_box(second_number);

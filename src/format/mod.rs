@@ -26,7 +26,7 @@ impl<'a> InputFormat<'a> {
         return Ok(Self { elements });
     }
 
-    pub fn input_strings(&self, input: &'a str) -> Vec<&'a str> {
+    pub fn input_strings(&self, input: &'a str) -> io::Result<Vec<&'a str>> {
         let mut input = input;
         let mut capture = false;
         let mut input_elements = Vec::new();
@@ -59,7 +59,7 @@ impl<'a> InputFormat<'a> {
         if capture {
             input_elements.push(input);
         }
-        return input_elements;
+        return Ok(input_elements);
     }
 }
 

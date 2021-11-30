@@ -11,19 +11,20 @@
 //! ```no_run
 //! use scanf::scanf;
 //!
-//! let product: String;
-//! let price: f32;
+//! let mut product: String = String::new();
+//! let mut price: f32 = 0.0;
 //! println!("Insert product and price (product: price):");
-//! scanf!("{}: {}", product, price);
-//! println!("Price of {} is {:.2}", product, price);
+//! if scanf!("{}: {}", product, price).is_ok() {
+//!     println!("Price of {} is {:.2}", product, price);
+//! }
 //! ```
 //!
 //! ```
 //! use scanf::sscanf;
 //!
 //! let input: &str = "Candy: 2.75";
-//! let product: String;
-//! let price: f32;
+//! let mut product: String = String::new();
+//! let mut price: f32 = 0.0;
 //! println!("Insert product and price (product: price):");
 //! sscanf!(input, "{}: {}", product, price);
 //! println!("Price of {} is {:.2}", product, price);
@@ -35,8 +36,8 @@
 //!
 //! ```no_run
 //! # use scanf::scanf;
-//! let product: String;
-//! let price: f32;
+//! let mut product: String = String::new();
+//! let mut price: f32 = 0.0;
 //! println!("Insert product and price (product: price):");
 //! scanf!("{string}: {f32}", product, price);
 //! # println!("Price of {} is {:.2}", product, price);
@@ -47,7 +48,7 @@
 //! ```
 //! # use scanf::sscanf;
 //! let input: &str = "{Candy}";
-//! let product: String;
+//! let mut product: String = String::new();
 //! sscanf!(input, "{{{}}}", product);
 //! assert_eq!(product, "Candy");
 //! ```
@@ -60,27 +61,46 @@ pub mod format;
 
 #[macro_export]
 macro_rules! sscanf {
-    ($input:tt, $format:literal, $($var:ident),+ ) => {
-        let formatter = $crate::format::InputFormat::new($format).unwrap();
-        let inputs = formatter.input_strings($input);
-        let mut inputs_iter = inputs.iter();
-        $(
-            $var = inputs_iter.next().unwrap().trim().parse().unwrap();
-        )*
-    };
-    ($input:tt, $format:literal, $($var:ident),+ , ) => { sscanf!($input, $format, $($var),*) };
+    ($input:expr, $format:literal, $($var:ident),+ ) => {{
+        match $crate::format::InputFormat::new($format).and_then(|formatter| formatter.input_strings($input)) {
+            Ok(inputs) => {
+                let mut inputs_iter = inputs.iter().map(|input| input.trim());
+                let mut result = Ok(());
+                $(
+                    if result.is_ok() {
+                        if let Some(input) = inputs_iter.next() {
+                            match input.parse() {
+                                Ok(input_parsed) => $var = input_parsed,
+                                Err(error) => {
+                                    let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
+                                    result = result.and(Err(invalid_input_error));
+                                }
+                            }
+                        } else {
+                            let not_enough_inputs_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, "There is not enough input placeholders for all variables.");
+                            result = result.and(Err(not_enough_inputs_error));
+                        }
+                    }
+                )*
+                result
+            }
+            Err(error) => Err(error),
+        }
+    }};
+    ($input:expr, $format:literal, $($var:ident),+ , ) => { sscanf!($input, $format, $($var),*) };
 }
 
 #[macro_export]
 macro_rules! scanf {
-    ($format:literal, $($var:ident),+ ) => {
-        use std::io::Write;
+    ($format:literal, $($var:ident),+ ) => {{
         let mut buffer = String::new();
-		std::io::stdout().flush(); // In some use cases the output between scanf calls was not showed without this flush.
-        std::io::stdin().read_line(&mut buffer).unwrap();
-        let input = buffer.as_ref();
-        $crate::sscanf!(input, $format, $($var),*);
-    };
+        // In some use cases the output between scanf calls was not showed without this flush.
+		let _ = std::io::Write::flush(&mut std::io::stdout());
+        match std::io::stdin().read_line(&mut buffer) {
+            Ok(_) => $crate::sscanf!(buffer.as_ref(), $format, $($var),*),
+            Err(error) => Err(error),
+        }
+    }};
     ($format:literal, $($var:ident),+ , ) => { scanf!($format, $($var),*) };
 }
 
@@ -91,9 +111,9 @@ mod tests {
     #[test]
     fn strings() {
         let input = "Hello: world";
-        let request: String;
-        let reply: String;
-        sscanf!(input, "{string}: {string}", request, reply);
+        let mut request: String = String::new();
+        let mut reply: String = String::new();
+        sscanf!(input, "{string}: {string}", request, reply).unwrap();
         assert_eq!(request, "Hello");
         assert_eq!(reply, "world");
     }
@@ -101,9 +121,9 @@ mod tests {
     #[test]
     fn string_and_float() {
         let input = "Candy->2.5";
-        let product: String;
-        let price: f64;
-        sscanf!(input, "{string}->{f64}", product, price,);
+        let mut product: String = String::new();
+        let mut price: f64 = 0.0;
+        sscanf!(input, "{string}->{f64}", product, price,).unwrap();
         assert_eq!(product, "Candy");
         assert_eq!(price, 2.5);
     }
@@ -111,9 +131,9 @@ mod tests {
     #[test]
     fn generic() {
         let input = "5 -> 5.0";
-        let request: i32;
-        let reply: f32;
-        sscanf!(input, "{} -> {}", request, reply);
+        let mut request: i32 = 0;
+        let mut reply: f32 = 0.0;
+        sscanf!(input, "{} -> {}", request, reply).unwrap();
         assert_eq!(request, 5);
         assert_eq!(reply, 5.0);
     }
@@ -122,24 +142,24 @@ mod tests {
     #[should_panic]
     fn wrong_format_string() {
         let input = "5 -> 5.0 <-";
-        let _request: i32;
-        let _reply: f32;
-        sscanf!(input, "{} -}> {} <-", _request, _reply);
+        let mut _request: i32 = 0;
+        let mut _reply: f32 = 0.0;
+        sscanf!(input, "{} -}> {} <-", _request, _reply).unwrap();
     }
 
     #[test]
     fn string_between_brackets_ignored() {
         let input = "{Hello world}";
-        let message: String;
-        sscanf!(input, "{{{string}}}", message);
+        let mut message: String = String::new();
+        sscanf!(input, "{{{string}}}", message).unwrap();
         assert_eq!(message, "Hello world");
     }
 
     #[test]
     fn string_generic_between_brackets_ignored() {
         let input = "{Hello world}";
-        let message: String;
-        sscanf!(input, "{{{}}}", message);
+        let mut message: String = String::new();
+        sscanf!(input, "{{{}}}", message).unwrap();
         assert_eq!(message, "Hello world");
     }
 }
