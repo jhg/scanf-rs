@@ -79,15 +79,6 @@ mod test {
     }
 
     #[test]
-    fn test_formatter_two_generic_without_separator() {
-        let formatter = InputFormat::new("{}{}").unwrap();
-        assert_eq!(
-            formatter.elements,
-            vec![InputFormatToken::GenericType, InputFormatToken::GenericType,]
-        )
-    }
-
-    #[test]
     fn test_formatter_two_generic_with_separator() {
         let formatter = InputFormat::new("{} -> {}").unwrap();
         assert_eq!(
@@ -110,5 +101,14 @@ mod test {
     #[should_panic]
     fn test_wrong_formatter_unescaped_close_bracket() {
         InputFormat::new("{} -}> {}").unwrap();
+    }
+
+    #[test]
+    fn test_formatter_two_generic_without_separator() {
+        let formatter = InputFormat::new("{}{}").unwrap();
+        assert_eq!(
+            formatter.elements,
+            vec![InputFormatToken::GenericType, InputFormatToken::GenericType,]
+        )
     }
 }
