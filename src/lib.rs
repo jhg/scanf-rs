@@ -137,15 +137,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn wrong_format_string() {
-        let input = "5 -> 5.0 <-";
-        let mut _request: i32 = 0;
-        let mut _reply: f32 = 0.0;
-        sscanf!(input, "{} -}> {} <-", _request, _reply).unwrap();
-    }
-
-    #[test]
     fn string_between_brackets_ignored() {
         let input = "{Hello world}";
         let mut message: String = String::new();
@@ -159,5 +150,23 @@ mod tests {
         let mut message: String = String::new();
         sscanf!(input, "{{{}}}", message).unwrap();
         assert_eq!(message, "Hello world");
+    }
+
+    #[test]
+    #[should_panic]
+    fn wrong_format_string() {
+        let input = "5 -> 5.0 <-";
+        let mut _request: i32 = 0;
+        let mut _reply: f32 = 0.0;
+        sscanf!(input, "{} -}> {} <-", _request, _reply).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn wrong_format_two_generic_without_separator() {
+        let input = "Hello";
+        let mut _word1: String = String::new();
+        let mut _word2: String = String::new();
+        sscanf!(input, "{}{}", _word1, _word2).unwrap();
     }
 }
