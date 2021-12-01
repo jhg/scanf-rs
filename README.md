@@ -1,6 +1,6 @@
 # Scanf
 
-If you now it from C, nothing to tell you about. Same functionality but with memory safety.
+If you know it from C, same functionality but with memory safety.
 
 ```rust
 let mut index: u32 = 0;
