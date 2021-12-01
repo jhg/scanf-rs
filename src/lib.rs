@@ -75,11 +75,10 @@ macro_rules! sscanf {
                             }
                         }
                     } else {
-                        let not_enough_inputs_error = std::io::Error::new(
+                        result = result.and(Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidInput,
                             "There is not enough input placeholders for all variables."
-                        );
-                        result = result.and(Err(not_enough_inputs_error));
+                        )));
                     }
                 )*
                 result

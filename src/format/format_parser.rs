@@ -1,7 +1,5 @@
 use std::any::TypeId;
 
-use super::InputFormatToken;
-
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
@@ -11,6 +9,8 @@ use nom::{
     sequence::delimited,
     IResult,
 };
+
+use super::InputFormatToken;
 
 impl<'a> InputFormatToken<'a> {
     fn type_from_str(text: &'a str) -> std::io::Result<Self> {
