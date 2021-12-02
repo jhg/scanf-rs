@@ -15,6 +15,7 @@ use super::InputFormatToken;
 impl<'a> InputFormatToken<'a> {
     fn type_from_str(text: &'a str) -> std::io::Result<Self> {
         match text {
+            "" => Ok(Self::GenericType),
             "i32" => Ok(Self::Type(TypeId::of::<i32>())),
             "u32" => Ok(Self::Type(TypeId::of::<u32>())),
             "f32" => Ok(Self::Type(TypeId::of::<f32>())),
@@ -22,7 +23,6 @@ impl<'a> InputFormatToken<'a> {
             "u64" => Ok(Self::Type(TypeId::of::<u64>())),
             "f64" => Ok(Self::Type(TypeId::of::<f64>())),
             "string" => Ok(Self::Type(TypeId::of::<String>())),
-            "" => Ok(Self::GenericType),
             text => Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!("type {:?} is not accepted for format input", text),
