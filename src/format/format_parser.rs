@@ -56,7 +56,7 @@ fn text(input: &str) -> IResult<&str, InputFormatToken> {
         "{{" => "{",
         "}}" => "}",
         text => {
-            if text.contains("}") {
+            if text.contains('}') {
                 return Err(nom::Err::Failure(error::Error {
                     input: text,
                     code: error::ErrorKind::Tag,
