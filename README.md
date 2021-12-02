@@ -3,7 +3,7 @@
 If you know it from C, same functionality but with memory safety.
 
 ```rust
-let mut index: u32 = 0;
+let mut number: u32 = 0;
 let mut name: String = String::new();
 if scanf!("{},{}", number, name).is_ok() {
     println!("Input is: {} and {}", number, name);
@@ -12,7 +12,7 @@ if scanf!("{},{}", number, name).is_ok() {
 
 ```rust
 let input = "5,something";
-let mut index: u32 = 0;
+let mut number: u32 = 0;
 let mut name: String = String::new();
 if let Err(error) = sscanf!(input, "{},{}", number, name) {
     panic!("Error {} using sscanf!", error);
