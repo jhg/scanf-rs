@@ -15,7 +15,7 @@ let input = "5,something";
 let mut index: u32 = 0;
 let mut name: String = String::new();
 if let Err(error) = sscanf!(input, "{},{}", number, name) {
-    panic!("Error {} using sscang!", error);
+    panic!("Error {} using sscanf!", error);
 }
 ```
 
