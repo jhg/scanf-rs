@@ -38,9 +38,8 @@ impl<'a> InputFormat<'a> {
                             io::ErrorKind::InvalidInput,
                             "Can not split input correctly because the consecutive placeholder",
                         ));
-                    } else {
-                        capture = true;
                     }
+                    capture = true;
                 }
                 InputFormatToken::Text(text) => {
                     if let Some(text_start_offset) = input.find(text) {
