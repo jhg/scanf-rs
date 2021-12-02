@@ -1,7 +1,7 @@
 [package]
 name = "scanf"
 description = "Macros to parse simple text inputs (inverse of print! and format!)"
-version = "1.0.2"
+version = "1.0.3"
 keywords = ["scanf", "sscanf", "stdin", "input", "format"]
 license = "Unlicense"
 authors = ["Jesus Hernandez <jesushdez@protonmail.com>"]
