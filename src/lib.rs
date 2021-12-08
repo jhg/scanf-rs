@@ -61,17 +61,21 @@ pub mod format;
 #[macro_export]
 macro_rules! sscanf {
     ($input:expr, $format:literal, $($var:ident),+ ) => {{
-        match $crate::format::InputFormat::new($format).and_then(|formatter| formatter.input_strings($input)) {
+        match $crate::format::InputFormat::new($format).and_then(|formatter| formatter.inputs($input)) {
             Ok(inputs) => {
-                let mut inputs_iter = inputs.iter().map(|input| input.trim());
+                let mut inputs_iter = inputs.iter();
                 let mut result = Ok(());
                 $(
                     if let Some(input) = inputs_iter.next() {
-                        match input.parse() {
-                            Ok(input_parsed) => $var = input_parsed,
-                            Err(error) => {
-                                let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
-                                result = result.and(Err(invalid_input_error));
+                        if !input.is_required_type_of(&$var) {
+                            result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Placeholder type does not match the variable type")));
+                        } else {
+                            match input.as_str().parse() {
+                                Ok(input_parsed) => $var = input_parsed,
+                                Err(error) => {
+                                    let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
+                                    result = result.and(Err(invalid_input_error));
+                                }
                             }
                         }
                     } else {
@@ -171,5 +175,14 @@ mod tests {
         let mut _word1: String = String::new();
         let mut _word2: String = String::new();
         sscanf!(input, "{}{}", _word1, _word2).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn wrong_format_placeholder_type() {
+        let input = "5 -> 5.0";
+        let mut _request: i32 = 0;
+        let mut _reply: f32 = 0.0;
+        sscanf!(input, "{u64} -> {f64}", _request, _reply).unwrap();
     }
 }

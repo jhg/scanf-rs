@@ -18,7 +18,7 @@ pub enum InputFormatToken<'a> {
 }
 
 impl<'a> InputFormatToken<'a> {
-    fn typed<T: ?Sized + Any>() -> Self {
+    pub(super) fn typed<T: ?Sized + Any>() -> Self {
         Self::Type(TypeId::of::<T>())
     }
 

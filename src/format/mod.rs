@@ -1,7 +1,61 @@
-use std::io;
+use std::{
+    any::{Any, TypeId},
+    io,
+};
 
 mod format_parser;
 use format_parser::InputFormatToken;
+
+#[derive(Debug, PartialEq, Eq)]
+enum InputType {
+    Type(TypeId),
+    GenericType,
+}
+
+impl InputType {
+    fn typed<T: ?Sized + Any>() -> Self {
+        Self::Type(TypeId::of::<T>())
+    }
+}
+
+impl<'a> From<&InputFormatToken<'a>> for InputType {
+    fn from(input_format: &InputFormatToken<'a>) -> Self {
+        match *input_format {
+            InputFormatToken::Type(type_id) => Self::Type(type_id),
+            InputFormatToken::GenericType => Self::GenericType,
+            InputFormatToken::Text(_) => unreachable!("Input format of text is not a placeholder"),
+        }
+    }
+}
+
+pub struct InputElement<'a> {
+    input: &'a str,
+    required_type: InputType,
+}
+
+impl<'a> InputElement<'a> {
+    fn new(input: &'a str, required_type: InputType) -> Self {
+        Self {
+            input: if required_type != InputType::typed::<String>() {
+                input.trim()
+            } else {
+                input
+            },
+            required_type,
+        }
+    }
+
+    pub fn as_str(&self) -> &'a str {
+        self.input
+    }
+
+    pub fn is_required_type_of<T: ?Sized + Any>(&self, _var: &T) -> bool {
+        match self.required_type {
+            InputType::GenericType => true,
+            InputType::Type(type_id) => type_id == TypeId::of::<T>(),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct InputFormat<'a> {
@@ -19,26 +73,18 @@ impl<'a> InputFormat<'a> {
         return Ok(Self { elements });
     }
 
-    pub fn input_strings(&self, input: &'a str) -> io::Result<Vec<&'a str>> {
+    pub fn inputs(&self, input: &'a str) -> io::Result<Vec<InputElement<'a>>> {
         let mut input = input;
-        let mut capture = false;
+        let mut capture = None;
         let mut input_elements = Vec::new();
         for element in &self.elements {
-            match *element {
-                InputFormatToken::Type(_) | InputFormatToken::GenericType => {
-                    if capture {
-                        return Err(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            "Can not split input correctly because the consecutive placeholder",
-                        ));
-                    }
-                    capture = true;
-                }
-                InputFormatToken::Text(text) => {
+            match element {
+                &InputFormatToken::Text(text) => {
                     if let Some(text_start_offset) = input.find(text) {
-                        if capture {
-                            capture = false;
-                            let input_element = &input[..text_start_offset];
+                        if let Some(required_type) = capture {
+                            capture = None;
+                            let input_text = &input[..text_start_offset];
+                            let input_element = InputElement::new(input_text, required_type);
                             input_elements.push(input_element);
                             input = &input[(text_start_offset + text.len())..];
                         } else {
@@ -51,10 +97,20 @@ impl<'a> InputFormat<'a> {
                         ));
                     }
                 }
+                required_type => {
+                    if capture.is_some() {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "Can not split input correctly because the consecutive placeholder",
+                        ));
+                    }
+                    capture = Some(required_type.into());
+                }
             }
         }
-        if capture {
-            input_elements.push(input);
+        if let Some(required_type) = capture {
+            let input_element = InputElement::new(input, required_type);
+            input_elements.push(input_element);
         }
         return Ok(input_elements);
     }
