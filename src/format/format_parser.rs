@@ -49,10 +49,10 @@ pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
 }
 
 fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
-    alt((type_format, text))(input)
+    alt((type_placeholder_token, text_token))(input)
 }
 
-fn text(input: &str) -> IResult<&str, InputFormatToken> {
+fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
     let (remaining, text) = alt((
         tag("{{"),
         tag("}}"),
@@ -77,7 +77,7 @@ fn text(input: &str) -> IResult<&str, InputFormatToken> {
     return Ok((remaining, text_token));
 }
 
-fn type_format(input: &str) -> IResult<&str, InputFormatToken> {
+fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
     let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
     let (remaining, type_name) = type_parser(input)?;
     return match InputFormatToken::type_from_name(type_name) {
