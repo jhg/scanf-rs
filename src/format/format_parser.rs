@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 use nom::{
     branch::alt,
@@ -18,7 +18,7 @@ pub enum InputFormatToken<'a> {
 }
 
 impl<'a> InputFormatToken<'a> {
-    fn typed<T: ?Sized + 'static>() -> Self {
+    fn typed<T: ?Sized + Any>() -> Self {
         Self::Type(TypeId::of::<T>())
     }
 
