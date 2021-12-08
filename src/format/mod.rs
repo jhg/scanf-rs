@@ -60,27 +60,27 @@ impl<'a> InputElement<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct InputFormat<'a> {
-    elements: Vec<InputFormatToken<'a>>,
+pub struct InputFormatParser<'a> {
+    tokens: Vec<InputFormatToken<'a>>,
 }
 
-impl<'a> InputFormat<'a> {
-    pub fn new(input: &'a str) -> io::Result<Self> {
-        let (_, elements) = format_parser::tokenize(input).map_err(|error| {
+impl<'a> InputFormatParser<'a> {
+    pub fn new(input_format: &'a str) -> io::Result<Self> {
+        let (_, tokens) = format_parser::tokenize(input_format).map_err(|error| {
             io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("Invalid input format string: {}", error),
             )
         })?;
-        return Ok(Self { elements });
+        return Ok(Self { tokens });
     }
 
     pub fn inputs(&self, input: &'a str) -> io::Result<Vec<InputElement<'a>>> {
         let mut input = input;
         let mut capture = None;
         let mut input_elements = Vec::new();
-        for element in &self.elements {
-            match element {
+        for token in &self.tokens {
+            match token {
                 &InputFormatToken::Text(text) => {
                     if let Some(text_start_offset) = input.find(text) {
                         if let Some(required_type) = capture {
@@ -99,14 +99,14 @@ impl<'a> InputFormat<'a> {
                         ));
                     }
                 }
-                required_type => {
+                input_placeholder_token => {
                     if capture.is_some() {
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidInput,
                             "Can not split input correctly because the consecutive placeholder",
                         ));
                     }
-                    capture = Some(required_type.into());
+                    capture = Some(InputType::from(input_placeholder_token));
                 }
             }
         }
@@ -124,15 +124,15 @@ mod test {
 
     #[test]
     fn test_formatter_simple_generic() {
-        let formatter = InputFormat::new("{}").unwrap();
-        assert_eq!(formatter.elements, vec![InputFormatToken::GenericType])
+        let formatter = InputFormatParser::new("{}").unwrap();
+        assert_eq!(formatter.tokens, vec![InputFormatToken::GenericType])
     }
 
     #[test]
     fn test_formatter_two_generic_with_separator() {
-        let formatter = InputFormat::new("{} -> {}").unwrap();
+        let formatter = InputFormatParser::new("{} -> {}").unwrap();
         assert_eq!(
-            formatter.elements,
+            formatter.tokens,
             vec![
                 InputFormatToken::GenericType,
                 InputFormatToken::Text(" -> "),
@@ -144,29 +144,29 @@ mod test {
     #[test]
     #[should_panic]
     fn test_wrong_formatter_unescaped_open_bracket() {
-        InputFormat::new("{} -{> {}").unwrap();
+        InputFormatParser::new("{} -{> {}").unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_wrong_formatter_unescaped_close_bracket() {
-        InputFormat::new("{} -}> {}").unwrap();
+        InputFormatParser::new("{} -}> {}").unwrap();
     }
 
     #[test]
     fn test_formatter_two_generic_without_separator() {
-        let formatter = InputFormat::new("{}{}").unwrap();
+        let formatter = InputFormatParser::new("{}{}").unwrap();
         assert_eq!(
-            formatter.elements,
+            formatter.tokens,
             vec![InputFormatToken::GenericType, InputFormatToken::GenericType,]
         )
     }
 
     #[test]
     fn test_formatter_number_and_string_without_separator() {
-        let formatter = InputFormat::new("{i32}{string}").unwrap();
+        let formatter = InputFormatParser::new("{i32}{string}").unwrap();
         assert_eq!(
-            formatter.elements,
+            formatter.tokens,
             vec![
                 InputFormatToken::typed::<i32>(),
                 InputFormatToken::typed::<String>(),

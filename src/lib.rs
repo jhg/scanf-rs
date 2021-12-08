@@ -61,7 +61,7 @@ pub mod format;
 #[macro_export]
 macro_rules! sscanf {
     ($input:expr, $format:literal, $($var:ident),+ ) => {{
-        match $crate::format::InputFormat::new($format).and_then(|formatter| formatter.inputs($input)) {
+        match $crate::format::InputFormatParser::new($format).and_then(|formatter| formatter.inputs($input)) {
             Ok(inputs) => {
                 let mut inputs_iter = inputs.iter();
                 let mut result = Ok(());
