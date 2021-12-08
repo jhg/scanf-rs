@@ -49,7 +49,7 @@ impl<'a> InputElement<'a> {
         self.input
     }
 
-    pub fn is_required_type_of<T: ?Sized + Any>(&self, _var: &T) -> bool {
+    pub fn is_required_type_of_var<T: ?Sized + Any>(&self, _var: &T) -> bool {
         match self.required_type {
             InputType::GenericType => true,
             InputType::Type(type_id) => type_id == TypeId::of::<T>(),

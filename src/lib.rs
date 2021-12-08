@@ -67,7 +67,7 @@ macro_rules! sscanf {
                 let mut result = Ok(());
                 $(
                     if let Some(input) = inputs_iter.next() {
-                        if !input.is_required_type_of(&$var) {
+                        if !input.is_required_type_of_var(&$var) {
                             result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Placeholder type does not match the variable type")));
                         } else {
                             match input.as_str().parse() {
