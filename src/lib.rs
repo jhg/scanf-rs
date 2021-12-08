@@ -144,6 +144,16 @@ mod tests {
     }
 
     #[test]
+    fn u8_and_u16() {
+        let input = "5 -> 1024";
+        let mut timeout: u8 = 0;
+        let mut port: u16 = 0;
+        sscanf!(input, "{u8} -> {u16}", timeout, port).unwrap();
+        assert_eq!(timeout, 5);
+        assert_eq!(port, 1024);
+    }
+
+    #[test]
     fn string_between_brackets_ignored() {
         let input = "{Hello world}";
         let mut message: String = String::new();

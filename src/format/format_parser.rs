@@ -25,6 +25,10 @@ impl<'a> InputFormatToken<'a> {
     fn type_from_name(text: &str) -> std::io::Result<Self> {
         match text {
             "" => Ok(Self::GenericType),
+            "i8" => Ok(Self::typed::<i8>()),
+            "u8" => Ok(Self::typed::<u8>()),
+            "i16" => Ok(Self::typed::<i16>()),
+            "u16" => Ok(Self::typed::<u16>()),
             "i32" => Ok(Self::typed::<i32>()),
             "u32" => Ok(Self::typed::<u32>()),
             "f32" => Ok(Self::typed::<f32>()),
