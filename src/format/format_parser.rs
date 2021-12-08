@@ -61,7 +61,12 @@ fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
         take_until("{"),
         take_until("}"),
     ))(input)?;
-    let text_token = InputFormatToken::Text(match text {
+    let text_token = InputFormatToken::Text(unescape_text(text)?);
+    return Ok((remaining, text_token));
+}
+
+fn unescape_text(text: &str) -> Result<&str, nom::Err<nom::error::Error<&str>>> {
+    let unescape_text = match text {
         "{{" => "{",
         "}}" => "}",
         text => {
@@ -73,8 +78,8 @@ fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
             }
             text
         }
-    });
-    return Ok((remaining, text_token));
+    };
+    return Ok(unescape_text);
 }
 
 fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
