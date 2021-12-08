@@ -1,14 +1,7 @@
-use std::any::TypeId;
 use std::io;
 
 mod format_parser;
-
-#[derive(Debug, PartialEq, Eq)]
-enum InputFormatToken<'a> {
-    Text(&'a str),
-    Type(TypeId),
-    GenericType,
-}
+use format_parser::InputFormatToken;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct InputFormat<'a> {

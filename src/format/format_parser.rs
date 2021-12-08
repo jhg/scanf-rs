@@ -10,19 +10,28 @@ use nom::{
     IResult,
 };
 
-use super::InputFormatToken;
+#[derive(Debug, PartialEq, Eq)]
+pub enum InputFormatToken<'a> {
+    Text(&'a str),
+    Type(TypeId),
+    GenericType,
+}
 
 impl<'a> InputFormatToken<'a> {
-    fn type_from_str(text: &'a str) -> std::io::Result<Self> {
+    fn typed<T: ?Sized + 'static>() -> Self {
+        Self::Type(TypeId::of::<T>())
+    }
+
+    fn type_from_name(text: &str) -> std::io::Result<Self> {
         match text {
             "" => Ok(Self::GenericType),
-            "i32" => Ok(Self::Type(TypeId::of::<i32>())),
-            "u32" => Ok(Self::Type(TypeId::of::<u32>())),
-            "f32" => Ok(Self::Type(TypeId::of::<f32>())),
-            "i64" => Ok(Self::Type(TypeId::of::<i64>())),
-            "u64" => Ok(Self::Type(TypeId::of::<u64>())),
-            "f64" => Ok(Self::Type(TypeId::of::<f64>())),
-            "string" => Ok(Self::Type(TypeId::of::<String>())),
+            "i32" => Ok(Self::typed::<i32>()),
+            "u32" => Ok(Self::typed::<u32>()),
+            "f32" => Ok(Self::typed::<f32>()),
+            "i64" => Ok(Self::typed::<i64>()),
+            "u64" => Ok(Self::typed::<u64>()),
+            "f64" => Ok(Self::typed::<f64>()),
+            "string" => Ok(Self::typed::<String>()),
             text => Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!("type {:?} is not accepted for format input", text),
@@ -71,7 +80,7 @@ fn text(input: &str) -> IResult<&str, InputFormatToken> {
 fn type_format(input: &str) -> IResult<&str, InputFormatToken> {
     let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
     let (remaining, type_name) = type_parser(input)?;
-    return match InputFormatToken::type_from_str(type_name) {
+    return match InputFormatToken::type_from_name(type_name) {
         Ok(type_token) => Ok((remaining, type_token)),
         Err(_) => Err(nom::Err::Failure(error::Error {
             input: type_name,
