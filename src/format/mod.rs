@@ -159,4 +159,16 @@ mod test {
             vec![InputFormatToken::GenericType, InputFormatToken::GenericType,]
         )
     }
+
+    #[test]
+    fn test_formatter_number_and_string_without_separator() {
+        let formatter = InputFormat::new("{i32}{string}").unwrap();
+        assert_eq!(
+            formatter.elements,
+            vec![
+                InputFormatToken::typed::<i32>(),
+                InputFormatToken::typed::<String>(),
+            ]
+        )
+    }
 }
