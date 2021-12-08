@@ -45,10 +45,12 @@ impl<'a> InputElement<'a> {
         }
     }
 
+    #[inline]
     pub fn as_str(&self) -> &'a str {
         self.input
     }
 
+    #[inline]
     pub fn is_required_type_of_var<T: ?Sized + Any>(&self, _var: &T) -> bool {
         match self.required_type {
             InputType::GenericType => true,
