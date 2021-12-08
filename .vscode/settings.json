@@ -1,5 +1,4 @@
 {
-    "rust-analyzer.cargo.loadOutDirsFromCheck": true,
     "rust-analyzer.checkOnSave.command": "clippy",
     "editor.formatOnSave": true,
 }
