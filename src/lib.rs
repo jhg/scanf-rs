@@ -118,6 +118,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn string_and_float() {
         let input = "Candy->2.5";
         let mut product: String = String::new();
@@ -128,6 +129,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn generic() {
         let input = "5 -> 5.0";
         let mut request: i32 = 0;
