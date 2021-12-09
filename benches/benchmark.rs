@@ -92,6 +92,11 @@ fn sscanf_benchmark(c: &mut Criterion) {
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u128>(input)),
         );
+        group.bench_with_input(
+            format!("sscanf 10 u16 as String separated by commas {}", i),
+            input,
+            |b, input| b.iter(|| sscanf_10_same_elements_of::<String>(input)),
+        );
     }
     group.finish();
 
