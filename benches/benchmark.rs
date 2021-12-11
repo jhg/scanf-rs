@@ -1,4 +1,5 @@
 #![allow(unused_must_use)]
+#![allow(clippy::needless_return)]
 
 use std::{any::Any, error::Error, str::FromStr};
 
@@ -68,32 +69,50 @@ where
     );
 }
 
+const INPUT_FORMATS: [&str; 4] = ["", "{}", "{},{}", "{string},{u64}"];
+
 fn sscanf_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("input-format-parse-benchmark");
+    for input_format in INPUT_FORMATS {
+        group.throughput(Throughput::Bytes(input_format.len() as u64));
+        group.bench_with_input(
+            format!("Parse input format {:?}", input_format),
+            input_format,
+            |b, input_format| {
+                b.iter(|| {
+                    let input_parser = scanf::format::InputFormatParser::new(input_format).unwrap();
+                    black_box(input_parser);
+                })
+            },
+        );
+    }
+    group.finish();
+
     let mut group = c.benchmark_group("throughput-benchmark");
     for (i, &input) in TEN_U16_NUMBERS_SEPARATED_BY_COMMAS.iter().enumerate() {
         group.throughput(Throughput::Bytes(input.len() as u64));
         group.bench_with_input(
-            format!("sscanf 10 u16 as u16 separated by commas {}", i),
+            format!("Sscanf 10 u16 as u16 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u16>(input)),
         );
         group.bench_with_input(
-            format!("sscanf 10 u16 as u32 separated by commas {}", i),
+            format!("Sscanf 10 u16 as u32 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u32>(input)),
         );
         group.bench_with_input(
-            format!("sscanf 10 u16 as u64 separated by commas {}", i),
+            format!("Sscanf 10 u16 as u64 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u64>(input)),
         );
         group.bench_with_input(
-            format!("sscanf 10 u16 as u128 separated by commas {}", i),
+            format!("Sscanf 10 u16 as u128 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u128>(input)),
         );
         group.bench_with_input(
-            format!("sscanf 10 u16 as String separated by commas {}", i),
+            format!("Sscanf 10 u16 as String separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<String>(input)),
         );
@@ -101,7 +120,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     group.finish();
 
     let input = black_box("-5");
-    c.bench_function("sscanf i32", |b| {
+    c.bench_function("Sscanf i32", |b| {
         b.iter(|| {
             let mut first_number: i32 = 0;
             sscanf!(input, "{}", first_number);
@@ -110,7 +129,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("-5");
-    c.bench_function("sscanf i64", |b| {
+    c.bench_function("Sscanf i64", |b| {
         b.iter(|| {
             let mut first_number: i64 = 0;
             sscanf!(input, "{}", first_number);
@@ -119,7 +138,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("5");
-    c.bench_function("sscanf u32", |b| {
+    c.bench_function("Sscanf u32", |b| {
         b.iter(|| {
             let mut first_number: u32 = 0;
             sscanf!(input, "{}", first_number);
@@ -128,7 +147,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("5");
-    c.bench_function("sscanf u64", |b| {
+    c.bench_function("Sscanf u64", |b| {
         b.iter(|| {
             let mut first_number: u64 = 0;
             sscanf!(input, "{}", first_number);
@@ -137,7 +156,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("2.5");
-    c.bench_function("sscanf f32", |b| {
+    c.bench_function("Sscanf f32", |b| {
         b.iter(|| {
             let mut first_number: f32 = 0.0;
             sscanf!(input, "{}", first_number);
@@ -146,7 +165,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("2.5");
-    c.bench_function("sscanf f64", |b| {
+    c.bench_function("Sscanf f64", |b| {
         b.iter(|| {
             let mut first_number: f64 = 0.0;
             sscanf!(input, "{}", first_number);
@@ -155,7 +174,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("Candy");
-    c.bench_function("sscanf string", |b| {
+    c.bench_function("Sscanf string", |b| {
         b.iter(|| {
             let mut product: String = String::new();
             sscanf!(input, "{}", product);
@@ -164,7 +183,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("{Candy}");
-    c.bench_function("sscanf string with brackets", |b| {
+    c.bench_function("Sscanf string with brackets", |b| {
         b.iter(|| {
             let mut product: String = String::new();
             sscanf!(input, "{}", product);
@@ -173,7 +192,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("{Candy}");
-    c.bench_function("sscanf string with brackets ignored", |b| {
+    c.bench_function("Sscanf string with brackets ignored", |b| {
         b.iter(|| {
             let mut product: String = String::new();
             sscanf!(input, "{{{}}}", product);
@@ -182,7 +201,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("Candy -> 2.75");
-    c.bench_function("sscanf string & f64", |b| {
+    c.bench_function("Sscanf string & f64", |b| {
         b.iter(|| {
             let mut product: String = String::new();
             let mut price: f64 = 0.0;
@@ -193,7 +212,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
 
     let input = black_box("5 -> 2.5");
-    c.bench_function("sscanf u32 & f64", |b| {
+    c.bench_function("Sscanf u32 & f64", |b| {
         b.iter(|| {
             let mut first_number: u32 = 0;
             let mut second_number: f64 = 0.0;
