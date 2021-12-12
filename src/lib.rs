@@ -90,7 +90,7 @@ macro_rules! sscanf {
             Err(error) => Err(error),
         }
     }};
-    ($input:expr, $format:literal, $($var:ident),+ , ) => { sscanf!($input, $format, $($var),*) };
+    ($input:expr, $format:literal, $($var:ident),+ , ) => { $crate::sscanf!($input, $format, $($var),*) };
 }
 
 #[macro_export]
@@ -104,7 +104,7 @@ macro_rules! scanf {
             Err(error) => Err(error),
         }
     }};
-    ($format:literal, $($var:ident),+ , ) => { scanf!($format, $($var),*) };
+    ($format:literal, $($var:ident),+ , ) => { $crate::scanf!($format, $($var),*) };
 }
 
 #[cfg(test)]
