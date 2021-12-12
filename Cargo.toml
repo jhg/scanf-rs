@@ -1,7 +1,7 @@
 [package]
 name = "scanf"
 description = "Parse text inputs (inverse of print! and format!)"
-version = "1.1.2"
+version = "1.1.3"
 keywords = ["scanf", "sscanf", "stdin", "input", "format"]
 license = "Unlicense"
 authors = ["Jesus Hernandez <jesushdez@protonmail.com>"]

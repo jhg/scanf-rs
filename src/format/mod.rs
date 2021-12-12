@@ -34,6 +34,7 @@ pub struct InputElement<'a> {
 }
 
 impl<'a> InputElement<'a> {
+    #[inline]
     fn new(input: &'a str, required_type: InputType) -> Self {
         Self {
             input: if required_type != InputType::typed::<String>() {
