@@ -12,13 +12,6 @@ edition = "2021"
 [dependencies]
 nom = "7"
 
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "benchmark"
-harness = false
-
 [profile.release]
 opt-level = 3
 debug = false
