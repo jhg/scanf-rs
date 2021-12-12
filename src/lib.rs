@@ -115,7 +115,7 @@ macro_rules! scanf {
             Err(error) => Err(error),
         }
     }};
-    ($format:literal, $($var:ident),+ , ) => { scanf!($format, $($var),*) };
+    ($format:literal, $($var:ident),+ , ) => { $crate::scanf!($format, $($var),*) };
 }
 
 #[cfg(test)]
