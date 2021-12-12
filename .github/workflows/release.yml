@@ -60,3 +60,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "${{needs.version_check.outputs.releaseVersion}}"
+          target_commitish: "${{github.ref_name}}"
