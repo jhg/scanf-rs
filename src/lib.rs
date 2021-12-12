@@ -61,7 +61,18 @@ pub mod format;
 #[macro_export]
 macro_rules! sscanf {
     ($input:expr, $format:literal, $($var:ident),+ ) => {{
-        match $crate::format::InputFormatParser::new($format).and_then(|formatter| formatter.inputs($input)) {
+        match $crate::format::InputFormatParser::new($format) {
+            Ok(input_format_parser) => {
+                $crate::sscanf!($input, input_format_parser, $($var),+)
+            }
+            Err(error) => Err(error),
+        }
+    }};
+    ($input:expr, $format:literal, $($var:ident),+ , ) => { $crate::sscanf!($input, $format, $($var),*) };
+    ($input:expr, $formatter:ident, $($var:ident),+ ) => {{
+        // This hint the required type for the variable passed if a compile error is show.
+        let formatter: $crate::format::InputFormatParser = $formatter;
+        match formatter.inputs($input) {
             Ok(inputs) => {
                 let mut inputs_iter = inputs.iter();
                 let mut result = Ok(());
@@ -90,7 +101,7 @@ macro_rules! sscanf {
             Err(error) => Err(error),
         }
     }};
-    ($input:expr, $format:literal, $($var:ident),+ , ) => { sscanf!($input, $format, $($var),*) };
+    ($input:expr, $formatter:ident, $($var:ident),+ , ) => { $crate::sscanf!($input, $formatter, $($var),*) };
 }
 
 #[macro_export]
