@@ -13,7 +13,7 @@ edition = "2021"
 nom = "7"
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.5"
 
 [[bench]]
 name = "benchmark"
