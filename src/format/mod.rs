@@ -13,7 +13,7 @@ enum InputType {
 }
 
 impl InputType {
-    fn typed<T: ?Sized + Any>() -> Self {
+    fn typed<T: ?Sized + Any>() -> Self { // NOTE: in the future maybe can be const fn.
         Self::Type(TypeId::of::<T>())
     }
 }
