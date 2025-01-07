@@ -68,7 +68,8 @@ impl<'a> InputFormatParser<'a> {
 
     #[inline]
     fn count_placeholders(&self) -> usize {
-        self.tokens.iter()
+        self.tokens
+            .iter()
             .filter(|token| !matches!(token, InputFormatToken::Text(_)))
             .count()
     }

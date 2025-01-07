@@ -2,7 +2,6 @@
 #![allow(clippy::needless_return)]
 #![doc = include_str!("../README.md")]
 
-
 #[doc(hidden)]
 pub mod format;
 
