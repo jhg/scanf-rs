@@ -25,6 +25,7 @@ impl<'a> InputFormatToken<'a> {
     fn type_from_name(text: &str) -> std::io::Result<Self> {
         match text {
             "" => Ok(Self::GenericType),
+            "string" => Ok(Self::typed::<String>()),
             "i8" => Ok(Self::typed::<i8>()),
             "u8" => Ok(Self::typed::<u8>()),
             "i16" => Ok(Self::typed::<i16>()),
@@ -35,7 +36,6 @@ impl<'a> InputFormatToken<'a> {
             "i64" => Ok(Self::typed::<i64>()),
             "u64" => Ok(Self::typed::<u64>()),
             "f64" => Ok(Self::typed::<f64>()),
-            "string" => Ok(Self::typed::<String>()),
             text => Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!("type {:?} is not accepted for format input", text),
