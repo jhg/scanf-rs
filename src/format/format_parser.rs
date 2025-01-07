@@ -46,14 +46,28 @@ impl<'a> InputFormatToken<'a> {
 
 pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
     let (remaining, mut tokens) = many0(input_format_token)(input)?;
+
     if !remaining.is_empty() {
         tokens.push(InputFormatToken::Text(remaining));
     }
+
     return Ok(("", tokens));
 }
 
 fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
     alt((type_placeholder_token, text_token))(input)
+}
+
+fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
+    let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
+    let (remaining, type_name) = type_parser(input)?;
+    return match InputFormatToken::type_from_name(type_name) {
+        Ok(type_token) => Ok((remaining, type_token)),
+        Err(_) => Err(nom::Err::Failure(error::Error {
+            input: type_name,
+            code: error::ErrorKind::Tag,
+        })),
+    };
 }
 
 fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
@@ -77,16 +91,4 @@ fn unescape_text(text: &str) -> Result<&str, nom::Err<nom::error::Error<&str>>> 
         }
     };
     return Ok(unescape_text);
-}
-
-fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
-    let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
-    let (remaining, type_name) = type_parser(input)?;
-    return match InputFormatToken::type_from_name(type_name) {
-        Ok(type_token) => Ok((remaining, type_token)),
-        Err(_) => Err(nom::Err::Failure(error::Error {
-            input: type_name,
-            code: error::ErrorKind::Tag,
-        })),
-    };
 }

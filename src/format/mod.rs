@@ -66,10 +66,17 @@ impl<'a> InputFormatParser<'a> {
         return Ok(Self { tokens });
     }
 
+    #[inline]
+    fn count_placeholders(&self) -> usize {
+        self.tokens.iter()
+            .filter(|token| !matches!(token, InputFormatToken::Text(_)))
+            .count()
+    }
+
     pub fn inputs(&self, input: &'a str) -> io::Result<Vec<InputElement<'a>>> {
         let mut input = input;
         let mut capture = None;
-        let mut input_elements = Vec::new();
+        let mut input_elements = Vec::with_capacity(self.count_placeholders());
 
         for token in &self.tokens {
             if let &InputFormatToken::Text(text) = token {
@@ -95,7 +102,7 @@ impl<'a> InputFormatParser<'a> {
                     "Can not split input correctly because the consecutive placeholder",
                 ));
             }
-            
+
             if let &InputFormatToken::Type(type_id) = token {
                 capture = Some(InputType::Type(type_id));
             } else {
