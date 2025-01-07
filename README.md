@@ -2,7 +2,11 @@
 
 If you know it from C, same functionality but with memory safety.
 
+## scanf! & sscanf!
+
 ```rust
+use scanf::scanf;
+
 let mut number: u32 = 0;
 let mut name: String = String::new();
 if scanf!("{},{}", number, name).is_ok() {
@@ -11,6 +15,8 @@ if scanf!("{},{}", number, name).is_ok() {
 ```
 
 ```rust
+use scanf::sscanf;
+
 let input = "5,something";
 let mut number: u32 = 0;
 let mut name: String = String::new();
@@ -19,4 +25,52 @@ if let Err(error) = sscanf!(input, "{},{}", number, name) {
 }
 ```
 
-Look more [examples in the documentation](https://docs.rs/scanf/latest/scanf/#examples).
+## Examples
+
+```no_run
+use scanf::scanf;
+
+let mut product: String = String::new();
+let mut price: f32 = 0.0;
+println!("Insert product and price (product: price):");
+if scanf!("{}: {}", product, price).is_ok() {
+    println!("Price of {} is {:.2}", product, price);
+}
+```
+
+```
+use scanf::sscanf;
+
+let input: &str = "Candy: 2.75";
+let mut product: String = String::new();
+let mut price: f32 = 0.0;
+println!("Insert product and price (product: price):");
+sscanf!(input, "{}: {}", product, price);
+println!("Price of {} is {:.2}", product, price);
+# assert_eq!(product, "Candy");
+# assert_eq!(price, 2.75);
+```
+
+It's possible to indicate the type in the format string:
+
+```no_run
+# use scanf::scanf;
+let mut product: String = String::new();
+let mut price: f32 = 0.0;
+println!("Insert product and price (product: price):");
+scanf!("{string}: {f32}", product, price);
+# println!("Price of {} is {:.2}", product, price);
+```
+
+Also escape brackets:
+
+```
+# use scanf::sscanf;
+let input: &str = "{Candy}";
+let mut product: String = String::new();
+sscanf!(input, "{{{}}}", product);
+assert_eq!(product, "Candy");
+```
+
+Examples has been compiled and `sscanf`'s examples also ran as tests.
+If you have problems using the example code, please, [create an issue](https://github.com/jhg/scanf-rs/issues?q=is%3Aissue).
