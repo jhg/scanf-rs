@@ -57,12 +57,7 @@ fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
 }
 
 fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
-    let (remaining, text) = alt((
-        tag("{{"),
-        tag("}}"),
-        take_until("{"),
-        take_until("}"),
-    ))(input)?;
+    let (remaining, text) = alt((tag("{{"), tag("}}"), take_until("{"), take_until("}")))(input)?;
     let text_token = InputFormatToken::Text(unescape_text(text)?);
     return Ok((remaining, text_token));
 }
