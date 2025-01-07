@@ -89,10 +89,8 @@ impl<'a> InputFormatParser<'a> {
                             let input_text = &input[..text_start_offset];
                             let input_element = InputElement::new(input_text, required_type);
                             input_elements.push(input_element);
-                            input = &input[(text_start_offset + text.len())..];
-                        } else {
-                            input = &input[text.len()..];
                         }
+                        input = &input[(text_start_offset + text.len())..];
                     } else {
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidInput,
