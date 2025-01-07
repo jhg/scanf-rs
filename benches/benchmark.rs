@@ -7,10 +7,9 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughpu
 
 use scanf::sscanf;
 
-const TEN_U16_NUMBERS_SEPARATED_BY_COMMAS: [&str; 6] = [
+const U16_NUMBERS_SEPARATED_BY_COMMAS: [&str; 5] = [
     "1,2,3,4,5,6,7,8,9,0",
     "161,162,163,164,165,166,167,168,169,161",
-    "12453,22325,35645,47872,57834,63276,63876,09283,45673,04132",
     "65535,65535,65535,65535,65535,65535,65535,65535,65535,65535",
     "45641,13422,24233,34124,55423,45236,23457,24578,06239,00000",
     "56981,52353,13123,14241,24445,03466,42357,24658,63469,18760",
@@ -104,30 +103,30 @@ fn sscanf_benchmark(c: &mut Criterion) {
     group.finish();
 
     let mut group = c.benchmark_group("throughput-benchmark");
-    for (i, &input) in TEN_U16_NUMBERS_SEPARATED_BY_COMMAS.iter().enumerate() {
+    for (i, &input) in U16_NUMBERS_SEPARATED_BY_COMMAS.iter().enumerate() {
         group.throughput(Throughput::Bytes(input.len() as u64));
         group.bench_with_input(
-            format!("Sscanf 10 u16 as u16 separated by commas {}", i),
+            format!("Sscanf u16 as u16 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u16>(input)),
         );
         group.bench_with_input(
-            format!("Sscanf 10 u16 as u32 separated by commas {}", i),
+            format!("Sscanf u16 as u32 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u32>(input)),
         );
         group.bench_with_input(
-            format!("Sscanf 10 u16 as u64 separated by commas {}", i),
+            format!("Sscanf u16 as u64 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u64>(input)),
         );
         group.bench_with_input(
-            format!("Sscanf 10 u16 as u128 separated by commas {}", i),
+            format!("Sscanf u16 as u128 separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<u128>(input)),
         );
         group.bench_with_input(
-            format!("Sscanf 10 u16 as String separated by commas {}", i),
+            format!("Sscanf u16 as String separated by commas {}", i),
             input,
             |b, input| b.iter(|| sscanf_10_same_elements_of::<String>(input)),
         );
