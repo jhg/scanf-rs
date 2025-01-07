@@ -7,17 +7,13 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughpu
 
 use scanf::sscanf;
 
-const TEN_U16_NUMBERS_SEPARATED_BY_COMMAS: [&str; 10] = [
+const TEN_U16_NUMBERS_SEPARATED_BY_COMMAS: [&str; 6] = [
     "1,2,3,4,5,6,7,8,9,0",
-    "11,12,13,14,15,16,17,18,19,20",
     "161,162,163,164,165,166,167,168,169,161",
     "12453,22325,35645,47872,57834,63276,63876,09283,45673,04132",
     "65535,65535,65535,65535,65535,65535,65535,65535,65535,65535",
-    "18456,24574,45673,36754,35675,64673,45547,23458,46549,34620",
     "45641,13422,24233,34124,55423,45236,23457,24578,06239,00000",
-    "56336,43532,45324,45345,34534,34789,32474,35853,26994,43530",
     "56981,52353,13123,14241,24445,03466,42357,24658,63469,18760",
-    "53669,53456,45613,14241,53435,23426,23567,35248,34539,34534",
 ];
 
 fn sscanf_10_same_elements_of<T: Default + FromStr + Any>(
@@ -72,6 +68,25 @@ where
 const INPUT_FORMATS: [&str; 4] = ["", "{}", "{},{}", "{string},{u64}"];
 
 fn sscanf_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("split-benchmark");
+    let input = black_box("Candy 2.75");
+    let mut product = String::new();
+    let mut price = String::new();
+    group.throughput(Throughput::Bytes(input.len() as u64));
+    group.bench_function("Split with sscanf", |b| {
+        b.iter(|| {
+            sscanf!(input, "{} {}", product, price);
+        })
+    });
+    group.bench_function("Split with str::split", |b| {
+        b.iter(|| {
+            let mut split = input.split_whitespace();
+            product = split.next().unwrap().to_string();
+            price = split.next().unwrap().to_string();
+        })
+    });
+    group.finish();
+
     let mut group = c.benchmark_group("input-format-parse-benchmark");
     for input_format in INPUT_FORMATS {
         group.throughput(Throughput::Bytes(input_format.len() as u64));
