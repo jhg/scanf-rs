@@ -19,16 +19,6 @@ impl InputType {
     }
 }
 
-impl<'a> From<&InputFormatToken<'a>> for InputType {
-    fn from(input_format: &InputFormatToken<'a>) -> Self {
-        match *input_format {
-            InputFormatToken::Type(type_id) => Self::Type(type_id),
-            InputFormatToken::GenericType => Self::GenericType,
-            InputFormatToken::Text(_) => unreachable!("Input format of text is not a placeholder"),
-        }
-    }
-}
-
 pub struct InputElement<'a> {
     input: &'a str,
     required_type: InputType,
@@ -80,39 +70,44 @@ impl<'a> InputFormatParser<'a> {
         let mut input = input;
         let mut capture = None;
         let mut input_elements = Vec::new();
+
         for token in &self.tokens {
-            match token {
-                &InputFormatToken::Text(text) => {
-                    if let Some(text_start_offset) = input.find(text) {
-                        if let Some(required_type) = capture {
-                            capture = None;
-                            let input_text = &input[..text_start_offset];
-                            let input_element = InputElement::new(input_text, required_type);
-                            input_elements.push(input_element);
-                        }
-                        input = &input[(text_start_offset + text.len())..];
-                    } else {
-                        return Err(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            format!("Can not find text separator {:?}", text),
-                        ));
+            if let &InputFormatToken::Text(text) = token {
+                if let Some(text_start_offset) = input.find(text) {
+                    if let Some(required_type) = capture {
+                        capture = None;
+                        let input_text = &input[..text_start_offset];
+                        let input_element = InputElement::new(input_text, required_type);
+                        input_elements.push(input_element);
                     }
+                    input = &input[(text_start_offset + text.len())..];
+                    continue;
                 }
-                input_placeholder_token => {
-                    if capture.is_some() {
-                        return Err(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            "Can not split input correctly because the consecutive placeholder",
-                        ));
-                    }
-                    capture = Some(InputType::from(input_placeholder_token));
-                }
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("Can not find text separator {:?}", text),
+                ));
+            }
+
+            if capture.is_some() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Can not split input correctly because the consecutive placeholder",
+                ));
+            }
+            
+            if let &InputFormatToken::Type(type_id) = token {
+                capture = Some(InputType::Type(type_id));
+            } else {
+                capture = Some(InputType::GenericType);
             }
         }
+
         if let Some(required_type) = capture {
             let input_element = InputElement::new(input, required_type);
             input_elements.push(input_element);
         }
+
         return Ok(input_elements);
     }
 }
