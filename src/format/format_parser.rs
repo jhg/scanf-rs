@@ -60,8 +60,6 @@ fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
     let (remaining, text) = alt((
         tag("{{"),
         tag("}}"),
-        take_until("{{"),
-        take_until("}}"),
         take_until("{"),
         take_until("}"),
     ))(input)?;
