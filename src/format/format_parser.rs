@@ -1,6 +1,7 @@
 use std::any::{Any, TypeId};
 
 use nom::{
+    Parser,
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::{alphanumeric0, char},
@@ -45,7 +46,8 @@ impl<'a> InputFormatToken<'a> {
 }
 
 pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
-    let (remaining, mut tokens) = many0(input_format_token)(input)?;
+    let (remaining, mut tokens) = many0(input_format_token)
+        .parse(input)?;
 
     if !remaining.is_empty() {
         tokens.push(InputFormatToken::Text(remaining));
@@ -55,12 +57,14 @@ pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
 }
 
 fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
-    alt((type_placeholder_token, text_token))(input)
+    alt((type_placeholder_token, text_token))
+        .parse(input)
 }
 
 fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
     let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
-    let (remaining, type_name) = type_parser(input)?;
+    let (remaining, type_name) = type_parser.parse(input)?;
+
     return match InputFormatToken::type_from_name(type_name) {
         Ok(type_token) => Ok((remaining, type_token)),
         Err(_) => Err(nom::Err::Failure(error::Error {
@@ -71,7 +75,8 @@ fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
 }
 
 fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
-    let (remaining, text) = alt((tag("{{"), tag("}}"), take_until("{"), take_until("}")))(input)?;
+    let (remaining, text) = alt((tag("{{"), tag("}}"), take_until("{"), take_until("}")))
+        .parse(input)?;
     let text_token = InputFormatToken::Text(unescape_text(text)?);
     return Ok((remaining, text_token));
 }
