@@ -10,7 +10,7 @@ exclude = [".github/**", ".vscode/**", "benches/**", "Cargo.lock", "LICENSE", ".
 edition = "2021"
 
 [dependencies]
-nom = "7"
+nom = "8"
 
 [dev-dependencies]
 criterion = "0.5"
