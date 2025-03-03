@@ -3,9 +3,9 @@
 #![doc = include_str!("../README.md")]
 
 #[doc(hidden)]
-pub mod format;
-#[doc(hidden)]
 pub mod error;
+#[doc(hidden)]
+pub mod format;
 
 #[macro_export]
 macro_rules! sscanf {

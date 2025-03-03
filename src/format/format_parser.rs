@@ -1,14 +1,13 @@
 use std::any::{Any, TypeId};
 
 use nom::{
-    Parser,
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::{alphanumeric0, char},
     error::{self, context},
     multi::many0,
     sequence::delimited,
-    IResult,
+    IResult, Parser,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -46,8 +45,7 @@ impl<'a> InputFormatToken<'a> {
 }
 
 pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
-    let (remaining, mut tokens) = many0(input_format_token)
-        .parse(input)?;
+    let (remaining, mut tokens) = many0(input_format_token).parse(input)?;
 
     if !remaining.is_empty() {
         tokens.push(InputFormatToken::Text(remaining));
@@ -57,8 +55,7 @@ pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
 }
 
 fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
-    alt((type_placeholder_token, text_token))
-        .parse(input)
+    alt((type_placeholder_token, text_token)).parse(input)
 }
 
 fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
@@ -75,8 +72,9 @@ fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
 }
 
 fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
-    let (remaining, text) = alt((tag("{{"), tag("}}"), take_until("{"), take_until("}")))
-        .parse(input)?;
+    let (remaining, text) =
+        alt((tag("{{"), tag("}}"), take_until("{"), take_until("}"))).parse(input)?;
+
     let text_token = InputFormatToken::Text(unescape_text(text)?);
     return Ok((remaining, text_token));
 }
