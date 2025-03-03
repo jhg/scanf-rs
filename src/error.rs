@@ -1,5 +1,6 @@
 use std::io;
 
+#[inline]
 pub fn placeholder_type_does_not_match(_: ()) -> io::Result<()> {
     Err(io::Error::new(
         io::ErrorKind::InvalidInput,
@@ -7,6 +8,7 @@ pub fn placeholder_type_does_not_match(_: ()) -> io::Result<()> {
     ))
 }
 
+#[inline]
 pub fn not_enough_placeholders(_: ()) -> io::Result<()> {
     Err(io::Error::new(
         io::ErrorKind::InvalidInput,
