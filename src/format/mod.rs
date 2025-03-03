@@ -37,7 +37,7 @@ impl<'a> InputElement<'a> {
     }
 
     #[inline]
-    pub fn as_str(&self) -> &'a str {
+    pub const fn as_str(&self) -> &'a str {
         self.input
     }
 

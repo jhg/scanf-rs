@@ -4,6 +4,8 @@
 
 #[doc(hidden)]
 pub mod format;
+#[doc(hidden)]
+pub mod error;
 
 #[macro_export]
 macro_rules! sscanf {
@@ -26,7 +28,7 @@ macro_rules! sscanf {
                 $(
                     if let Some(input) = inputs_iter.next() {
                         if !input.is_required_type_of_var(&$var) {
-                            result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Placeholder type does not match the variable type")));
+                            result = result.and_then($crate::error::placeholder_type_does_not_match);
                         } else {
                             match input.as_str().parse() {
                                 Ok(input_parsed) => $var = input_parsed,
@@ -37,10 +39,7 @@ macro_rules! sscanf {
                             }
                         }
                     } else {
-                        result = result.and(Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            "There is not enough input placeholders for all variables."
-                        )));
+                        result = result.and_then($crate::error::not_enough_placeholders);
                     }
                 )*
                 result
