@@ -1,13 +1,13 @@
 use std::any::{Any, TypeId};
 
 use nom::{
+    IResult, Parser,
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::{alphanumeric0, char},
     error::{self, context},
     multi::many0,
     sequence::delimited,
-    IResult, Parser,
 };
 
 #[derive(Debug, PartialEq, Eq)]

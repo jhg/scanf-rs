@@ -3,7 +3,7 @@
 
 use std::{any::Any, error::Error, str::FromStr};
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 
 use scanf::sscanf;
 
