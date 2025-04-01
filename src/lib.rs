@@ -152,4 +152,11 @@ mod tests {
         let mut _reply: f32 = 0.0;
         sscanf!(input, "{u64} -> {f64}", _request, _reply).unwrap();
     }
+
+    #[test]
+    fn into_array_elements() {
+        let s = "3,4";
+        let mut arr: [f64; 2] = [0.0; 2];
+        sscanf!(&s, "{},{}", arr[0], arr[1]).unwrap();
+    }
 }
