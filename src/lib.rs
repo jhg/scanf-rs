@@ -9,7 +9,7 @@ pub mod format;
 
 #[macro_export]
 macro_rules! sscanf {
-    ($input:expr, $format:literal, $($var:ident),+ ) => {{
+    ($input:expr, $format:literal, $($var:expr),+ ) => {{
         match $crate::format::InputFormatParser::new($format) {
             Ok(input_format_parser) => {
                 $crate::sscanf!($input, input_format_parser, $($var),+)
@@ -17,8 +17,8 @@ macro_rules! sscanf {
             Err(error) => Err(error),
         }
     }};
-    ($input:expr, $format:literal, $($var:ident),+ , ) => { $crate::sscanf!($input, $format, $($var),*) };
-    ($input:expr, $formatter:ident, $($var:ident),+ ) => {{
+    ($input:expr, $format:literal, $($var:expr),+ , ) => { $crate::sscanf!($input, $format, $($var),*) };
+    ($input:expr, $formatter:ident, $($var:expr),+ ) => {{
         // This hint the required type for the variable passed if a compile error is show.
         let formatter: $crate::format::InputFormatParser = $formatter;
         match formatter.inputs($input) {
@@ -52,7 +52,7 @@ macro_rules! sscanf {
 
 #[macro_export]
 macro_rules! scanf {
-    ($format:literal, $($var:ident),+ ) => {{
+    ($format:literal, $($var:expr),+ ) => {{
         let mut buffer = String::new();
         // In some use cases the output between scanf calls was not showed without this flush.
 		let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -61,7 +61,7 @@ macro_rules! scanf {
             Err(error) => Err(error),
         }
     }};
-    ($format:literal, $($var:ident),+ , ) => { $crate::scanf!($format, $($var),*) };
+    ($format:literal, $($var:expr),+ , ) => { $crate::scanf!($format, $($var),*) };
 }
 
 #[cfg(test)]
