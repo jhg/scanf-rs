@@ -38,7 +38,7 @@ if scanf!("{}: {}", product, price).is_ok() {
 }
 ```
 
-```
+```rust
 use scanf::sscanf;
 
 let input: &str = "Candy: 2.75";
@@ -64,7 +64,7 @@ scanf!("{string}: {f32}", product, price);
 
 Also escape brackets:
 
-```
+```rust
 # use scanf::sscanf;
 let input: &str = "{Candy}";
 let mut product: String = String::new();
