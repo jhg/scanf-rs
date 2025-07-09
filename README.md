@@ -51,6 +51,20 @@ println!("Price of {} is {:.2}", product, price);
 # assert_eq!(price, 2.75);
 ```
 
+Using variable names in format strings:
+
+```rust
+use scanf::sscanf;
+
+let input: &str = "Candy: 2.75";
+let mut product: String = String::new();
+let mut price: f32 = 0.0;
+sscanf!(input, "{product}: {price}", product, price);
+println!("Price of {} is {:.2}", product, price);
+# assert_eq!(product, "Candy");
+# assert_eq!(price, 2.75);
+```
+
 It's possible to indicate the type in the format string:
 
 ```no_run
@@ -59,6 +73,17 @@ let mut product: String = String::new();
 let mut price: f32 = 0.0;
 println!("Insert product and price (product: price):");
 scanf!("{string}: {f32}", product, price);
+# println!("Price of {} is {:.2}", product, price);
+```
+
+It's also possible to use variable names in the format string (similar to `format!`):
+
+```no_run
+# use scanf::scanf;
+let mut product: String = String::new();
+let mut price: f32 = 0.0;
+println!("Insert product and price (product: price):");
+scanf!("{product}: {price}", product, price);
 # println!("Price of {} is {:.2}", product, price);
 ```
 

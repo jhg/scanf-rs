@@ -7,6 +7,9 @@ pub mod error;
 #[doc(hidden)]
 pub mod format;
 
+#[cfg(test)]
+mod examples;
+
 #[macro_export]
 macro_rules! sscanf {
     ($input:expr, $format:literal, $($var:expr),+ ) => {{
@@ -184,5 +187,18 @@ mod tests {
         assert_eq!(location, "Temperature");
         assert_eq!(temp, 23.5);
         assert_eq!(unit, "degrees");
+    }
+
+    #[test]
+    fn test_scanf_with_variable_names() {
+        // Test that scanf! also works with variable names
+        // Note: This would read from stdin in real usage, so we can't test it directly
+        // But we can at least verify it compiles and the format string parses correctly
+        let input_format = "{username}: {score}";
+        let formatter = format::InputFormatParser::new(input_format).unwrap();
+        
+        // Verify that variable names are detected correctly
+        let variable_names = formatter.get_variable_names();
+        assert_eq!(variable_names, vec![Some("username"), Some("score")]);
     }
 }
