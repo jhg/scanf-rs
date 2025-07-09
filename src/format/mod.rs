@@ -7,12 +7,13 @@ mod format_parser;
 use format_parser::InputFormatToken;
 
 #[derive(Debug, PartialEq, Eq)]
-enum InputType {
+enum InputType<'a> {
     Type(TypeId),
     GenericType,
+    Variable(&'a str),
 }
 
-impl InputType {
+impl<'a> InputType<'a> {
     fn typed<T: ?Sized + Any>() -> Self {
         // NOTE: in the future maybe can be const fn.
         Self::Type(TypeId::of::<T>())
@@ -21,11 +22,11 @@ impl InputType {
 
 pub struct InputElement<'a> {
     input: &'a str,
-    required_type: InputType,
+    required_type: InputType<'a>,
 }
 
 impl<'a> InputElement<'a> {
-    fn new(input: &'a str, required_type: InputType) -> Self {
+    fn new(input: &'a str, required_type: InputType<'a>) -> Self {
         Self {
             input: if required_type != InputType::typed::<String>() {
                 input.trim()
@@ -44,8 +45,16 @@ impl<'a> InputElement<'a> {
     #[inline]
     pub fn is_required_type_of_var<T: ?Sized + Any>(&self, _var: &T) -> bool {
         match self.required_type {
-            InputType::GenericType => true,
+            InputType::GenericType | InputType::Variable(_) => true,
             InputType::Type(type_id) => type_id == TypeId::of::<T>(),
+        }
+    }
+
+    #[inline]
+    pub fn variable_name(&self) -> Option<&'a str> {
+        match self.required_type {
+            InputType::Variable(name) => Some(name),
+            _ => None,
         }
     }
 }
@@ -72,6 +81,18 @@ impl<'a> InputFormatParser<'a> {
             .iter()
             .filter(|token| !matches!(token, InputFormatToken::Text(_)))
             .count()
+    }
+
+    #[inline]
+    pub fn get_variable_names(&self) -> Vec<Option<&'a str>> {
+        self.tokens
+            .iter()
+            .filter_map(|token| match token {
+                InputFormatToken::Variable(name) => Some(Some(*name)),
+                InputFormatToken::Type(_) | InputFormatToken::GenericType => Some(None),
+                InputFormatToken::Text(_) => None,
+            })
+            .collect()
     }
 
     pub fn inputs(&self, input: &'a str) -> io::Result<Vec<InputElement<'a>>> {
@@ -104,10 +125,17 @@ impl<'a> InputFormatParser<'a> {
                 ));
             }
 
-            if let &InputFormatToken::Type(type_id) = token {
-                capture = Some(InputType::Type(type_id));
-            } else {
-                capture = Some(InputType::GenericType);
+            match token {
+                InputFormatToken::Type(type_id) => {
+                    capture = Some(InputType::Type(*type_id));
+                }
+                InputFormatToken::GenericType => {
+                    capture = Some(InputType::GenericType);
+                }
+                InputFormatToken::Variable(name) => {
+                    capture = Some(InputType::Variable(name));
+                }
+                InputFormatToken::Text(_) => unreachable!(),
             }
         }
 
@@ -172,6 +200,32 @@ mod tests {
             vec![
                 InputFormatToken::typed::<i32>(),
                 InputFormatToken::typed::<String>(),
+            ]
+        )
+    }
+
+    #[test]
+    fn test_formatter_variable_names() {
+        let formatter = InputFormatParser::new("{name}: {value}").unwrap();
+        assert_eq!(
+            formatter.tokens,
+            vec![
+                InputFormatToken::Variable("name"),
+                InputFormatToken::Text(": "),
+                InputFormatToken::Variable("value"),
+            ]
+        )
+    }
+
+    #[test]
+    fn test_formatter_mixed_variable_and_type() {
+        let formatter = InputFormatParser::new("{name}: {i32}").unwrap();
+        assert_eq!(
+            formatter.tokens,
+            vec![
+                InputFormatToken::Variable("name"),
+                InputFormatToken::Text(": "),
+                InputFormatToken::typed::<i32>(),
             ]
         )
     }

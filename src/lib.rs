@@ -159,4 +159,30 @@ mod tests {
         let mut arr: [f64; 2] = [0.0; 2];
         sscanf!(&s, "{},{}", arr[0], arr[1]).unwrap();
     }
+
+    #[test]
+    fn test_variable_names_basic() {
+        let input = "John: 25";
+        let mut name: String = String::new();
+        let mut age: i32 = 0;
+        
+        // Using variable names instead of types in format string
+        sscanf!(input, "{name}: {age}", name, age).unwrap();
+        assert_eq!(name, "John");
+        assert_eq!(age, 25);
+    }
+
+    #[test]
+    fn test_mixed_variable_names_and_types() {
+        let input = "Temperature: 23.5 degrees";
+        let mut location: String = String::new();
+        let mut temp: f32 = 0.0;
+        let mut unit: String = String::new();
+        
+        // Mix variable names and type specifications
+        sscanf!(input, "{location}: {f32} {unit}", location, temp, unit).unwrap();
+        assert_eq!(location, "Temperature");
+        assert_eq!(temp, 23.5);
+        assert_eq!(unit, "degrees");
+    }
 }

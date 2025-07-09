@@ -3,8 +3,8 @@ use std::any::{Any, TypeId};
 use nom::{
     IResult, Parser,
     branch::alt,
-    bytes::complete::{tag, take_until},
-    character::complete::{alphanumeric0, char},
+    bytes::complete::{tag, take_until, take_while1},
+    character::complete::char,
     error::{self, context},
     multi::many0,
     sequence::delimited,
@@ -15,6 +15,7 @@ pub enum InputFormatToken<'a> {
     Text(&'a str),
     Type(TypeId),
     GenericType,
+    Variable(&'a str),
 }
 
 impl<'a> InputFormatToken<'a> {
@@ -22,7 +23,7 @@ impl<'a> InputFormatToken<'a> {
         Self::Type(TypeId::of::<T>())
     }
 
-    fn type_from_name(text: &str) -> std::io::Result<Self> {
+    fn type_from_name(text: &'a str) -> std::io::Result<Self> {
         match text {
             "" => Ok(Self::GenericType),
             "string" => Ok(Self::typed::<String>()),
@@ -36,10 +37,17 @@ impl<'a> InputFormatToken<'a> {
             "i64" => Ok(Self::typed::<i64>()),
             "u64" => Ok(Self::typed::<u64>()),
             "f64" => Ok(Self::typed::<f64>()),
-            text => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("type {:?} is not accepted for format input", text),
-            )),
+            text => {
+                // If it's not a known type, treat it as a variable name
+                if is_valid_identifier(text) {
+                    Ok(Self::Variable(text))
+                } else {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("'{}' is not a valid type or variable name", text),
+                    ))
+                }
+            }
         }
     }
 }
@@ -59,7 +67,7 @@ fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
 }
 
 fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
-    let mut type_parser = context("input tag", delimited(char('{'), alphanumeric0, char('}')));
+    let mut type_parser = context("input tag", delimited(char('{'), identifier_or_empty, char('}')));
     let (remaining, type_name) = type_parser.parse(input)?;
 
     return match InputFormatToken::type_from_name(type_name) {
@@ -69,6 +77,14 @@ fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
             code: error::ErrorKind::Tag,
         })),
     };
+}
+
+fn identifier_or_empty(input: &str) -> IResult<&str, &str> {
+    alt((identifier, tag(""))).parse(input)
+}
+
+fn identifier(input: &str) -> IResult<&str, &str> {
+    take_while1(|c: char| c.is_alphanumeric() || c == '_').parse(input)
 }
 
 fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
@@ -94,4 +110,21 @@ fn unescape_text(text: &str) -> Result<&str, nom::Err<nom::error::Error<&str>>> 
         }
     };
     return Ok(unescape_text);
+}
+
+fn is_valid_identifier(text: &str) -> bool {
+    if text.is_empty() {
+        return false;
+    }
+    
+    let mut chars = text.chars();
+    let first_char = chars.next().unwrap();
+    
+    // First character must be a letter or underscore
+    if !first_char.is_alphabetic() && first_char != '_' {
+        return false;
+    }
+    
+    // Remaining characters must be alphanumeric or underscore
+    chars.all(|c| c.is_alphanumeric() || c == '_')
 }
