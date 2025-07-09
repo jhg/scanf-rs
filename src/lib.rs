@@ -168,7 +168,7 @@ mod tests {
         let input = "John: 25";
         let mut name: String = String::new();
         let mut age: i32 = 0;
-        
+
         // Using variable names instead of types in format string
         sscanf!(input, "{name}: {age}", name, age).unwrap();
         assert_eq!(name, "John");
@@ -181,7 +181,7 @@ mod tests {
         let mut location: String = String::new();
         let mut temp: f32 = 0.0;
         let mut unit: String = String::new();
-        
+
         // Mix variable names and type specifications
         sscanf!(input, "{location}: {f32} {unit}", location, temp, unit).unwrap();
         assert_eq!(location, "Temperature");
@@ -196,7 +196,7 @@ mod tests {
         // But we can at least verify it compiles and the format string parses correctly
         let input_format = "{username}: {score}";
         let formatter = format::InputFormatParser::new(input_format).unwrap();
-        
+
         // Verify that variable names are detected correctly
         let variable_names = formatter.get_variable_names();
         assert_eq!(variable_names, vec![Some("username"), Some("score")]);

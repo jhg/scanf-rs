@@ -67,7 +67,10 @@ fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
 }
 
 fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
-    let mut type_parser = context("input tag", delimited(char('{'), identifier_or_empty, char('}')));
+    let mut type_parser = context(
+        "input tag",
+        delimited(char('{'), identifier_or_empty, char('}')),
+    );
     let (remaining, type_name) = type_parser.parse(input)?;
 
     return match InputFormatToken::type_from_name(type_name) {
@@ -116,15 +119,15 @@ fn is_valid_identifier(text: &str) -> bool {
     if text.is_empty() {
         return false;
     }
-    
+
     let mut chars = text.chars();
     let first_char = chars.next().unwrap();
-    
+
     // First character must be a letter or underscore
     if !first_char.is_alphabetic() && first_char != '_' {
         return false;
     }
-    
+
     // Remaining characters must be alphanumeric or underscore
     chars.all(|c| c.is_alphanumeric() || c == '_')
 }
