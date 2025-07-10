@@ -65,14 +65,14 @@ println!("Price of {} is {:.2}", product, price);
 # assert_eq!(price, 2.75);
 ```
 
-It's possible to indicate the type in the format string:
+You can also use generic placeholders without specifying names:
 
 ```no_run
 # use scanf::scanf;
 let mut product: String = String::new();
 let mut price: f32 = 0.0;
 println!("Insert product and price (product: price):");
-scanf!("{string}: {f32}", product, price);
+scanf!("{}: {}", product, price);
 # println!("Price of {} is {:.2}", product, price);
 ```
 

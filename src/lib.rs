@@ -76,7 +76,7 @@ mod tests {
         let input = "Hello: world";
         let mut request: String = String::new();
         let mut reply: String = String::new();
-        sscanf!(input, "{string}: {string}", request, reply).unwrap();
+        sscanf!(input, "{}: {}", request, reply).unwrap();
         assert_eq!(request, "Hello");
         assert_eq!(reply, "world");
     }
@@ -87,7 +87,7 @@ mod tests {
         let input = "Candy->2.5";
         let mut product: String = String::new();
         let mut price: f64 = 0.0;
-        sscanf!(input, "{string}->{f64}", product, price,).unwrap();
+        sscanf!(input, "{}->{}", product, price,).unwrap();
         assert_eq!(product, "Candy");
         assert_eq!(price, 2.5);
     }
@@ -108,7 +108,7 @@ mod tests {
         let input = "5 -> 1024";
         let mut timeout: u8 = 0;
         let mut port: u16 = 0;
-        sscanf!(input, "{u8} -> {u16}", timeout, port).unwrap();
+        sscanf!(input, "{} -> {}", timeout, port).unwrap();
         assert_eq!(timeout, 5);
         assert_eq!(port, 1024);
     }
@@ -117,7 +117,7 @@ mod tests {
     fn string_between_brackets_ignored() {
         let input = "{Hello world}";
         let mut message: String = String::new();
-        sscanf!(input, "{{{string}}}", message).unwrap();
+        sscanf!(input, "{{{}}}", message).unwrap();
         assert_eq!(message, "Hello world");
     }
 
@@ -148,15 +148,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn wrong_format_placeholder_type() {
-        let input = "5 -> 5.0";
-        let mut _request: i32 = 0;
-        let mut _reply: f32 = 0.0;
-        sscanf!(input, "{u64} -> {f64}", _request, _reply).unwrap();
-    }
-
-    #[test]
     fn into_array_elements() {
         let s = "3,4";
         let mut arr: [f64; 2] = [0.0; 2];
@@ -176,14 +167,14 @@ mod tests {
     }
 
     #[test]
-    fn test_mixed_variable_names_and_types() {
+    fn test_mixed_variable_names_and_generic() {
         let input = "Temperature: 23.5 degrees";
         let mut location: String = String::new();
         let mut temp: f32 = 0.0;
         let mut unit: String = String::new();
 
-        // Mix variable names and type specifications
-        sscanf!(input, "{location}: {f32} {unit}", location, temp, unit).unwrap();
+        // Mix variable names and generic placeholders
+        sscanf!(input, "{location}: {} {unit}", location, temp, unit).unwrap();
         assert_eq!(location, "Temperature");
         assert_eq!(temp, 23.5);
         assert_eq!(unit, "degrees");
@@ -200,5 +191,62 @@ mod tests {
         // Verify that variable names are detected correctly
         let variable_names = formatter.get_variable_names();
         assert_eq!(variable_names, vec![Some("username"), Some("score")]);
+    }
+
+    #[test]
+    fn test_type_syntax_rejection() {
+        // Verify that old type syntax is no longer supported
+        
+        // These should fail because we treat 'i32' and 'string' as variable names
+        // but they're not valid identifiers in a typical context
+        let result1 = format::InputFormatParser::new("{i32}: {string}");
+        // This should succeed because we treat them as variable names
+        assert!(result1.is_ok());
+        
+        // Verify that the tokens are parsed as variable names
+        let parser = result1.unwrap();
+        let variable_names = parser.get_variable_names();
+        assert_eq!(variable_names, vec![Some("i32"), Some("string")]);
+        
+        // But when actually using them, they work as variable names
+        let input = "42: hello";
+        let mut i32_val: i32 = 0;
+        let mut string_val: String = String::new();
+        
+        // This should work because we no longer enforce type matching
+        let result = sscanf!(input, "{i32}: {string}", i32_val, string_val);
+        assert!(result.is_ok());
+        assert_eq!(i32_val, 42);
+        assert_eq!(string_val, "hello");
+    }
+
+    #[test]
+    fn test_variable_name_validation() {
+        // Test that invalid variable names are rejected
+        let invalid_names = vec![
+            "{123invalid}",  // starts with number
+            "{with-dash}",   // contains dash  
+            "{with space}",  // contains space
+            "{with.dot}",    // contains dot
+        ];
+        
+        for invalid_name in invalid_names {
+            let result = format::InputFormatParser::new(invalid_name);
+            assert!(result.is_err(), "Should reject invalid variable name: {}", invalid_name);
+        }
+        
+        // Test that valid variable names are accepted
+        let valid_names = vec![
+            "{valid_name}",
+            "{_underscore_start}",
+            "{name123}",
+            "{CamelCase}",
+            "{snake_case}",
+        ];
+        
+        for valid_name in valid_names {
+            let result = format::InputFormatParser::new(valid_name);
+            assert!(result.is_ok(), "Should accept valid variable name: {}", valid_name);
+        }
     }
 }

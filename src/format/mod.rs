@@ -1,23 +1,16 @@
-use std::{
-    any::{Any, TypeId},
-    io,
-};
+use std::{any::Any, io};
 
 mod format_parser;
 use format_parser::InputFormatToken;
 
 #[derive(Debug, PartialEq, Eq)]
 enum InputType<'a> {
-    Type(TypeId),
     GenericType,
     Variable(&'a str),
 }
 
 impl<'a> InputType<'a> {
-    fn typed<T: ?Sized + Any>() -> Self {
-        // NOTE: in the future maybe can be const fn.
-        Self::Type(TypeId::of::<T>())
-    }
+    // Removed typed method since we no longer support specific types
 }
 
 pub struct InputElement<'a> {
@@ -28,11 +21,8 @@ pub struct InputElement<'a> {
 impl<'a> InputElement<'a> {
     fn new(input: &'a str, required_type: InputType<'a>) -> Self {
         Self {
-            input: if required_type != InputType::typed::<String>() {
-                input.trim()
-            } else {
-                input
-            },
+            // No longer need special handling for String type since we removed type checking
+            input: input.trim(),
             required_type,
         }
     }
@@ -44,10 +34,9 @@ impl<'a> InputElement<'a> {
 
     #[inline]
     pub fn is_required_type_of_var<T: ?Sized + Any>(&self, _var: &T) -> bool {
-        match self.required_type {
-            InputType::GenericType | InputType::Variable(_) => true,
-            InputType::Type(type_id) => type_id == TypeId::of::<T>(),
-        }
+        // Since we removed type checking, all placeholders accept any type
+        // The compiler will enforce type compatibility anyway
+        true
     }
 
     #[inline]
@@ -89,7 +78,7 @@ impl<'a> InputFormatParser<'a> {
             .iter()
             .filter_map(|token| match token {
                 InputFormatToken::Variable(name) => Some(Some(*name)),
-                InputFormatToken::Type(_) | InputFormatToken::GenericType => Some(None),
+                InputFormatToken::GenericType => Some(None),
                 InputFormatToken::Text(_) => None,
             })
             .collect()
@@ -126,9 +115,6 @@ impl<'a> InputFormatParser<'a> {
             }
 
             match token {
-                InputFormatToken::Type(type_id) => {
-                    capture = Some(InputType::Type(*type_id));
-                }
                 InputFormatToken::GenericType => {
                     capture = Some(InputType::GenericType);
                 }
@@ -194,12 +180,13 @@ mod tests {
 
     #[test]
     fn test_formatter_number_and_string_without_separator() {
-        let formatter = InputFormatParser::new("{i32}{string}").unwrap();
+        // This test now uses variable names instead of types
+        let formatter = InputFormatParser::new("{number}{text}").unwrap();
         assert_eq!(
             formatter.tokens,
             vec![
-                InputFormatToken::typed::<i32>(),
-                InputFormatToken::typed::<String>(),
+                InputFormatToken::Variable("number"),
+                InputFormatToken::Variable("text"),
             ]
         )
     }
@@ -218,14 +205,15 @@ mod tests {
     }
 
     #[test]
-    fn test_formatter_mixed_variable_and_type() {
-        let formatter = InputFormatParser::new("{name}: {i32}").unwrap();
+    fn test_formatter_mixed_variable_and_generic() {
+        // This test now uses variable names and generic placeholders
+        let formatter = InputFormatParser::new("{name}: {}").unwrap();
         assert_eq!(
             formatter.tokens,
             vec![
                 InputFormatToken::Variable("name"),
                 InputFormatToken::Text(": "),
-                InputFormatToken::typed::<i32>(),
+                InputFormatToken::GenericType,
             ]
         )
     }

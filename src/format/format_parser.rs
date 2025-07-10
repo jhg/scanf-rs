@@ -1,5 +1,3 @@
-use std::any::{Any, TypeId};
-
 use nom::{
     IResult, Parser,
     branch::alt,
@@ -13,38 +11,22 @@ use nom::{
 #[derive(Debug, PartialEq, Eq)]
 pub enum InputFormatToken<'a> {
     Text(&'a str),
-    Type(TypeId),
     GenericType,
     Variable(&'a str),
 }
 
 impl<'a> InputFormatToken<'a> {
-    pub(super) fn typed<T: ?Sized + Any>() -> Self {
-        Self::Type(TypeId::of::<T>())
-    }
-
     fn type_from_name(text: &'a str) -> std::io::Result<Self> {
         match text {
             "" => Ok(Self::GenericType),
-            "string" => Ok(Self::typed::<String>()),
-            "i8" => Ok(Self::typed::<i8>()),
-            "u8" => Ok(Self::typed::<u8>()),
-            "i16" => Ok(Self::typed::<i16>()),
-            "u16" => Ok(Self::typed::<u16>()),
-            "i32" => Ok(Self::typed::<i32>()),
-            "u32" => Ok(Self::typed::<u32>()),
-            "f32" => Ok(Self::typed::<f32>()),
-            "i64" => Ok(Self::typed::<i64>()),
-            "u64" => Ok(Self::typed::<u64>()),
-            "f64" => Ok(Self::typed::<f64>()),
             text => {
-                // If it's not a known type, treat it as a variable name
+                // All non-empty content is treated as a variable name
                 if is_valid_identifier(text) {
                     Ok(Self::Variable(text))
                 } else {
                     Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
-                        format!("'{}' is not a valid type or variable name", text),
+                        format!("'{}' is not a valid variable name", text),
                     ))
                 }
             }
