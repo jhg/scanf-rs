@@ -196,23 +196,23 @@ mod tests {
     #[test]
     fn test_type_syntax_rejection() {
         // Verify that old type syntax is no longer supported
-        
+
         // These should fail because we treat 'i32' and 'string' as variable names
         // but they're not valid identifiers in a typical context
         let result1 = format::InputFormatParser::new("{i32}: {string}");
         // This should succeed because we treat them as variable names
         assert!(result1.is_ok());
-        
+
         // Verify that the tokens are parsed as variable names
         let parser = result1.unwrap();
         let variable_names = parser.get_variable_names();
         assert_eq!(variable_names, vec![Some("i32"), Some("string")]);
-        
+
         // But when actually using them, they work as variable names
         let input = "42: hello";
         let mut i32_val: i32 = 0;
         let mut string_val: String = String::new();
-        
+
         // This should work because we no longer enforce type matching
         let result = sscanf!(input, "{i32}: {string}", i32_val, string_val);
         assert!(result.is_ok());
@@ -224,17 +224,21 @@ mod tests {
     fn test_variable_name_validation() {
         // Test that invalid variable names are rejected
         let invalid_names = vec![
-            "{123invalid}",  // starts with number
-            "{with-dash}",   // contains dash  
-            "{with space}",  // contains space
-            "{with.dot}",    // contains dot
+            "{123invalid}", // starts with number
+            "{with-dash}",  // contains dash
+            "{with space}", // contains space
+            "{with.dot}",   // contains dot
         ];
-        
+
         for invalid_name in invalid_names {
             let result = format::InputFormatParser::new(invalid_name);
-            assert!(result.is_err(), "Should reject invalid variable name: {}", invalid_name);
+            assert!(
+                result.is_err(),
+                "Should reject invalid variable name: {}",
+                invalid_name
+            );
         }
-        
+
         // Test that valid variable names are accepted
         let valid_names = vec![
             "{valid_name}",
@@ -243,10 +247,14 @@ mod tests {
             "{CamelCase}",
             "{snake_case}",
         ];
-        
+
         for valid_name in valid_names {
             let result = format::InputFormatParser::new(valid_name);
-            assert!(result.is_ok(), "Should accept valid variable name: {}", valid_name);
+            assert!(
+                result.is_ok(),
+                "Should accept valid variable name: {}",
+                valid_name
+            );
         }
     }
 }
