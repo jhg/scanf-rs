@@ -69,7 +69,7 @@ jobs:
       - name: Build benchmarks
         run: cargo bench --no-run
       - name: Run benchmarks
-        uses: jasonwilliams/criterion-compare-action@move_to_actions
+        uses: jasonwilliams/criterion-compare-action@v3
         with:
           branchName: ${{ github.base_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
