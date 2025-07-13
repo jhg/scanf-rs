@@ -15,6 +15,9 @@ nom = "8"
 [dev-dependencies]
 criterion = "0.5"
 
+[lib]
+bench = false
+
 [[bench]]
 name = "benchmark"
 harness = false
