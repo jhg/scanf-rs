@@ -61,7 +61,7 @@ fn parse_format_string(format_str: &str) -> Vec<Placeholder> {
             }
 
             let mut content = String::new();
-            while let Some(ch) = chars.next() {
+            for ch in chars.by_ref() {
                 if ch == '}' {
                     break;
                 }
@@ -203,7 +203,7 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                 }
                 // Capture placeholder content
                 let mut content = String::new();
-                while let Some(c2) = chars.next() {
+                for c2 in chars.by_ref() {
                     if c2 == '}' {
                         break;
                     }
@@ -413,7 +413,7 @@ pub fn scanf(input: TokenStream) -> TokenStream {
                     ct_tokens.push(CTToken::Text(std::mem::take(&mut current_text)));
                 }
                 let mut content = String::new();
-                while let Some(c2) = chars.next() {
+                for c2 in chars.by_ref() {
                     if c2 == '}' {
                         break;
                     }
