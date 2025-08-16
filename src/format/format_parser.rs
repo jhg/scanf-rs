@@ -11,14 +11,14 @@ use nom::{
 #[derive(Debug, PartialEq, Eq)]
 pub enum InputFormatToken<'a> {
     Text(&'a str),
-    GenericType,
+    Anonymous,
     Variable(&'a str),
 }
 
 impl<'a> InputFormatToken<'a> {
     fn type_from_name(text: &'a str) -> std::io::Result<Self> {
         match text {
-            "" => Ok(Self::GenericType),
+            "" => Ok(Self::Anonymous),
             text => {
                 // All non-empty content is treated as a variable name
                 if is_valid_identifier(text) {

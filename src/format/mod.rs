@@ -5,7 +5,7 @@ use format_parser::InputFormatToken;
 
 #[derive(Debug, PartialEq, Eq)]
 enum InputType<'a> {
-    GenericType,
+    Anonymous,
     Variable(&'a str),
 }
 
@@ -33,6 +33,7 @@ impl<'a> InputElement<'a> {
     }
 
     #[inline]
+    #[deprecated(note = "Type checking is no longer needed since we removed type syntax. The compiler enforces type compatibility.")]
     pub fn is_required_type_of_var<T: ?Sized + Any>(&self, _var: &T) -> bool {
         // Since we removed type checking, all placeholders accept any type
         // The compiler will enforce type compatibility anyway
@@ -78,7 +79,7 @@ impl<'a> InputFormatParser<'a> {
             .iter()
             .filter_map(|token| match token {
                 InputFormatToken::Variable(name) => Some(Some(*name)),
-                InputFormatToken::GenericType => Some(None),
+                InputFormatToken::Anonymous => Some(None),
                 InputFormatToken::Text(_) => None,
             })
             .collect()
@@ -115,8 +116,8 @@ impl<'a> InputFormatParser<'a> {
             }
 
             match token {
-                InputFormatToken::GenericType => {
-                    capture = Some(InputType::GenericType);
+                InputFormatToken::Anonymous => {
+                    capture = Some(InputType::Anonymous);
                 }
                 InputFormatToken::Variable(name) => {
                     capture = Some(InputType::Variable(name));
@@ -141,7 +142,7 @@ mod tests {
     #[test]
     fn test_formatter_simple_generic() {
         let formatter = InputFormatParser::new("{}").unwrap();
-        assert_eq!(formatter.tokens, vec![InputFormatToken::GenericType])
+        assert_eq!(formatter.tokens, vec![InputFormatToken::Anonymous])
     }
 
     #[test]
@@ -150,9 +151,9 @@ mod tests {
         assert_eq!(
             formatter.tokens,
             vec![
-                InputFormatToken::GenericType,
+                InputFormatToken::Anonymous,
                 InputFormatToken::Text(" -> "),
-                InputFormatToken::GenericType,
+                InputFormatToken::Anonymous,
             ]
         )
     }
@@ -174,7 +175,7 @@ mod tests {
         let formatter = InputFormatParser::new("{}{}").unwrap();
         assert_eq!(
             formatter.tokens,
-            vec![InputFormatToken::GenericType, InputFormatToken::GenericType,]
+            vec![InputFormatToken::Anonymous, InputFormatToken::Anonymous,]
         )
     }
 
@@ -206,14 +207,14 @@ mod tests {
 
     #[test]
     fn test_formatter_mixed_variable_and_generic() {
-        // This test now uses variable names and generic placeholders
+        // This test now uses variable names and anonymous placeholders
         let formatter = InputFormatParser::new("{name}: {}").unwrap();
         assert_eq!(
             formatter.tokens,
             vec![
                 InputFormatToken::Variable("name"),
                 InputFormatToken::Text(": "),
-                InputFormatToken::GenericType,
+                InputFormatToken::Anonymous,
             ]
         )
     }

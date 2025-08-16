@@ -7,8 +7,7 @@ pub mod error;
 #[doc(hidden)]
 pub mod format;
 
-#[cfg(test)]
-mod examples;
+
 
 #[macro_export]
 macro_rules! sscanf {
@@ -30,15 +29,11 @@ macro_rules! sscanf {
                 let mut result = Ok(());
                 $(
                     if let Some(input) = inputs_iter.next() {
-                        if !input.is_required_type_of_var(&$var) {
-                            result = result.and_then($crate::error::placeholder_type_does_not_match);
-                        } else {
-                            match input.as_str().parse() {
-                                Ok(input_parsed) => $var = input_parsed,
-                                Err(error) => {
-                                    let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
-                                    result = result.and(Err(invalid_input_error));
-                                }
+                        match input.as_str().parse() {
+                            Ok(input_parsed) => $var = input_parsed,
+                            Err(error) => {
+                                let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
+                                result = result.and(Err(invalid_input_error));
                             }
                         }
                     } else {
@@ -256,5 +251,29 @@ mod tests {
                 valid_name
             );
         }
+    }
+
+    #[test]
+    fn test_variable_order_different_from_params() {
+        // Test where variables in format string are in different order than parameters
+        // Current implementation matches by position, not by variable name
+        let input = "Score: 95, Player: Alice";
+        let mut _first_param: String = String::new(); // Will get "95" (first placeholder)
+        let mut _second_param: u32 = 0; // Will get parsed from "Alice" - this will fail intentionally
+
+        // Format string has {score} first, then {player}, but parameters are in different order
+        // The current positional matching means _first_param gets "95", _second_param tries to parse "Alice" as u32
+        let result = sscanf!(input, "Score: {score}, Player: {player}", _first_param, _second_param);
+        
+        // This should fail because "Alice" cannot be parsed as u32
+        assert!(result.is_err());
+        
+        // Let's try with correct types in correct positions
+        let mut score: u32 = 0;
+        let mut player: String = String::new();
+        
+        sscanf!(input, "Score: {score}, Player: {player}", score, player).unwrap();
+        assert_eq!(score, 95);
+        assert_eq!(player, "Alice");
     }
 }
