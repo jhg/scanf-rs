@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "scanf-proc-macro"]
+
 [package]
 name = "scanf"
 description = "Parse text inputs (inverse of print! and format!)"
