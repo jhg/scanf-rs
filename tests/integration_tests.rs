@@ -1,4 +1,4 @@
-use scanf::sscanf;
+use scanf::sscanf_legacy;
 
 #[test]
 fn demonstrate_basic_functionality() {
@@ -9,7 +9,7 @@ fn demonstrate_basic_functionality() {
     let mut age1: u32 = 0;
     let mut unit1: String = String::new();
 
-    sscanf!(input1, "{}: {} {} old", name1, age1, unit1).unwrap();
+    sscanf_legacy!(input1, "{}: {} {} old", &mut name1, &mut age1, &mut unit1).unwrap();
     println!("Parsed: name={}, age={}, unit={}", name1, age1, unit1);
     assert_eq!(name1, "Alice");
     assert_eq!(age1, 30);
@@ -22,7 +22,7 @@ fn demonstrate_basic_functionality() {
     let mut age2: u32 = 0;
     let mut unit2: String = String::new();
 
-    sscanf!(input2, "{name2}: {age2} {unit2} old", name2, age2, unit2).unwrap();
+    sscanf_legacy!(input2, "{name2}: {age2} {unit2} old", &mut name2, &mut age2, &mut unit2).unwrap();
     println!("Parsed: name={}, age={}, unit={}", name2, age2, unit2);
     assert_eq!(name2, "Bob");
     assert_eq!(age2, 25);
@@ -35,7 +35,7 @@ fn demonstrate_basic_functionality() {
     let mut weight: f32 = 0.0;
     let mut unit3: String = String::new();
 
-    sscanf!(input3, "{name3}: {} {unit3}", name3, weight, unit3).unwrap();
+    sscanf_legacy!(input3, "{name3}: {} {unit3}", &mut name3, &mut weight, &mut unit3).unwrap();
     println!("Parsed: name={}, weight={}, unit={}", name3, weight, unit3);
     assert_eq!(name3, "Charlie");
     assert_eq!(weight, 35.5);
@@ -47,7 +47,7 @@ fn demonstrate_basic_functionality() {
     let mut name4: String = String::new();
     let mut age4: u32 = 0;
 
-    sscanf!(input4, "{}: {}", name4, age4).unwrap();
+    sscanf_legacy!(input4, "{}: {}", &mut name4, &mut age4).unwrap();
     println!("Parsed: name={}, age={}", name4, age4);
     assert_eq!(name4, "Diana");
     assert_eq!(age4, 28);
@@ -61,7 +61,7 @@ fn test_positional_parsing() {
     let mut second_var: String = String::new(); // Gets second placeholder value (Alice)
     
     // The variable names in placeholders are ignored - assignment is purely positional
-    sscanf!(input, "Score: {any_name}, Player: {other_name}", first_var, second_var).unwrap();
+    sscanf_legacy!(input, "Score: {any_name}, Player: {other_name}", &mut first_var, &mut second_var).unwrap();
     assert_eq!(first_var, 95);
     assert_eq!(second_var, "Alice");
 }
@@ -72,6 +72,6 @@ fn test_type_mismatch_error() {
     let mut wrong_type1: String = String::new(); // Trying to parse "95" as String (this works)
     let mut wrong_type2: u32 = 0; // Trying to parse "Alice" as u32 (this fails)
     
-    let result = sscanf!(input, "Score: {score}, Player: {player}", wrong_type1, wrong_type2);
+    let result = sscanf_legacy!(input, "Score: {score}, Player: {player}", &mut wrong_type1, &mut wrong_type2);
     assert!(result.is_err()); // Should fail because "Alice" can't be parsed as u32
 }

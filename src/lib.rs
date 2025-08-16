@@ -63,36 +63,31 @@ pub fn is_valid_rust_identifier(s: &str) -> bool {
     chars.all(|c| c.is_alphanumeric() || c == '_')
 }
 
-// Enhanced macro that supports variable capture
+// Re-export the procedural macro for the new syntax
+pub use scanf_proc_macro::sscanf;
+
+// Legacy macro for backward compatibility
 #[macro_export]
-macro_rules! sscanf {
-    // Case: No variables provided - all must be named in format string
-    ($input:expr, $format:literal) => {{
-        const FORMAT_STR: &str = $format;
-        let (var_info, anonymous_count) = $crate::extract_variable_info(FORMAT_STR);
-        
-        if anonymous_count > 0 {
-            panic!("Format string contains anonymous placeholders '{{}}' but no variables were provided. Either use named placeholders like '{{var_name}}' or provide {} variables as arguments.", anonymous_count);
-        }
-        
+macro_rules! sscanf_legacy {
+    ($input:expr, $format:literal, $($args:expr),+) => {{
         match $crate::format::InputFormatParser::new($format) {
             Ok(input_format_parser) => {
                 match input_format_parser.inputs($input) {
                     Ok(inputs) => {
                         let mut inputs_iter = inputs.iter();
                         let mut result = Ok(());
-                        
-                        // This is where we would assign to variables by name
-                        // For now, we'll just verify all parsing works
-                        for _var_info in var_info {
-                            if let Some(_input) = inputs_iter.next() {
-                                // In a real implementation, we'd need macro magic here
-                                // to assign to variables by name in the calling scope
+                        $(
+                            if let Some(input_element) = inputs_iter.next() {
+                                match input_element.as_str().parse() {
+                                    Ok(parsed) => *$args = parsed,
+                                    Err(error) => {
+                                        result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error)));
+                                    }
+                                }
                             } else {
                                 result = result.and_then($crate::error::not_enough_placeholders);
-                                break;
                             }
-                        }
+                        )*
                         result
                     }
                     Err(error) => Err(error),
@@ -102,47 +97,8 @@ macro_rules! sscanf {
         }
     }};
     
-    // Case: Variables provided - handle mixed named/anonymous
-    ($input:expr, $format:literal, $($var:expr),+ ) => {{
-        match $crate::format::InputFormatParser::new($format) {
-            Ok(input_format_parser) => {
-                $crate::sscanf!($input, input_format_parser, $($var),+)
-            }
-            Err(error) => Err(error),
-        }
-    }};
-    
-    ($input:expr, $format:literal, $($var:expr),+ , ) => { 
-        $crate::sscanf!($input, $format, $($var),*) 
-    };
-    
-    ($input:expr, $formatter:ident, $($var:expr),+ ) => {{
-        let formatter: $crate::format::InputFormatParser = $formatter;
-        match formatter.inputs($input) {
-            Ok(inputs) => {
-                let mut inputs_iter = inputs.iter();
-                let mut result = Ok(());
-                $(
-                    if let Some(input) = inputs_iter.next() {
-                        match input.as_str().parse() {
-                            Ok(input_parsed) => $var = input_parsed,
-                            Err(error) => {
-                                let invalid_input_error = std::io::Error::new(std::io::ErrorKind::InvalidInput, error);
-                                result = result.and(Err(invalid_input_error));
-                            }
-                        }
-                    } else {
-                        result = result.and_then($crate::error::not_enough_placeholders);
-                    }
-                )*
-                result
-            }
-            Err(error) => Err(error),
-        }
-    }};
-    
-    ($input:expr, $formatter:ident, $($var:ident),+ , ) => { 
-        $crate::sscanf!($input, $formatter, $($var),*) 
+    ($input:expr, $format:literal, $($args:expr),+,) => { 
+        $crate::sscanf_legacy!($input, $format, $($args),*) 
     };
 }
 
@@ -152,7 +108,7 @@ macro_rules! scanf {
         let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
         match std::io::stdin().read_line(&mut buffer) {
-            Ok(_) => $crate::sscanf!(buffer.as_ref(), $format),
+            Ok(_) => $crate::sscanf_legacy!(buffer.as_ref(), $format),
             Err(error) => Err(error),
         }
     }};
@@ -161,7 +117,7 @@ macro_rules! scanf {
         let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
         match std::io::stdin().read_line(&mut buffer) {
-            Ok(_) => $crate::sscanf!(buffer.as_ref(), $format, $($var),*),
+            Ok(_) => $crate::sscanf_legacy!(buffer.as_ref(), $format, $($var),*),
             Err(error) => Err(error),
         }
     }};
@@ -180,7 +136,7 @@ mod tests {
         let input = "Hello: world";
         let mut request: String = String::new();
         let mut reply: String = String::new();
-        sscanf!(input, "{}: {}", request, reply).unwrap();
+        sscanf_legacy!(input, "{}: {}", &mut request, &mut reply).unwrap();
         assert_eq!(request, "Hello");
         assert_eq!(reply, "world");
     }
@@ -191,7 +147,7 @@ mod tests {
         let input = "5 -> 5.0";
         let mut request: i32 = 0;
         let mut reply: f32 = 0.0;
-        sscanf!(input, "{} -> {}", request, reply).unwrap();
+        sscanf_legacy!(input, "{} -> {}", &mut request, &mut reply).unwrap();
         assert_eq!(request, 5);
         assert_eq!(reply, 5.0);
     }
@@ -204,7 +160,7 @@ mod tests {
         let mut age: i32 = 0;
 
         // This should work - named placeholders with explicit variable arguments
-        sscanf!(input, "{name}: {age}", name, age).unwrap();
+        sscanf_legacy!(input, "{name}: {age}", &mut name, &mut age).unwrap();
         assert_eq!(name, "John");
         assert_eq!(age, 25);
     }
@@ -217,7 +173,7 @@ mod tests {
         let mut unit: String = String::new();
 
         // Mix named and anonymous placeholders - this demonstrates the intended syntax
-        sscanf!(input, "{location}: {} {unit}", location, temp, unit).unwrap();
+        sscanf_legacy!(input, "{location}: {} {unit}", &mut location, &mut temp, &mut unit).unwrap();
         assert_eq!(location, "Temperature");
         assert_eq!(temp, 23.5);
         assert_eq!(unit, "degrees");
@@ -229,7 +185,7 @@ mod tests {
         let mut fruit: String = String::new();
         let mut count: i32 = 0;
         
-        sscanf!(input, "{}: {}", fruit, count).unwrap();
+        sscanf_legacy!(input, "{}: {}", &mut fruit, &mut count).unwrap();
         assert_eq!(fruit, "apple");
         assert_eq!(count, 5);
     }
@@ -270,7 +226,7 @@ mod tests {
     fn test_escaped_braces() {
         let input = "{Hello world}";
         let mut message: String = String::new();
-        sscanf!(input, "{{{}}}", message).unwrap();
+        sscanf_legacy!(input, "{{{}}}", &mut message).unwrap();
         assert_eq!(message, "Hello world");
     }
 
@@ -280,14 +236,14 @@ mod tests {
         let input = "5 -> 5.0 <-";
         let mut _request: i32 = 0;
         let mut _reply: f32 = 0.0;
-        sscanf!(input, "{} -}> {} <-", _request, _reply).unwrap();
+        sscanf_legacy!(input, "{} -}> {} <-", &mut _request, &mut _reply).unwrap();
     }
 
     #[test]
     fn test_into_array_elements() {
         let s = "3,4";
         let mut arr: [f64; 2] = [0.0; 2];
-        sscanf!(&s, "{},{}", arr[0], arr[1]).unwrap();
+        sscanf_legacy!(&s, "{},{}", &mut arr[0], &mut arr[1]).unwrap();
         assert_eq!(arr[0], 3.0);
         assert_eq!(arr[1], 4.0);
     }

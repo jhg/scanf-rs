@@ -11,6 +11,7 @@ edition = "2024"
 
 [dependencies]
 nom = "8"
+scanf-proc-macro = { path = "scanf-proc-macro" }
 
 [dev-dependencies]
 criterion = "0.5"
