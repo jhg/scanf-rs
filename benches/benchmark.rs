@@ -1,9 +1,9 @@
 #![allow(unused_must_use)]
 #![allow(clippy::needless_return)]
 
-use std::{any::Any, error::Error, str::FromStr};
+use std::{any::Any, error::Error, str::FromStr, hint::black_box};
 
-use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 
 use scanf::sscanf;
 
@@ -63,8 +63,6 @@ where
         number0, number1, number2, number3, number4, number5, number6, number7, number8, number9,
     );
 }
-
-const INPUT_FORMATS: [&str; 4] = ["", "{}", "{},{}", "{string},{u64}"];
 
 fn sscanf_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("split-benchmark");
