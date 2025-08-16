@@ -1,8 +1,8 @@
 use scanf::sscanf;
 
 #[test]
-fn demonstrate_new_syntax() {
-    // Example 1: Generic placeholders (no specific types)
+fn demonstrate_basic_functionality() {
+    // Example 1: Generic placeholders (traditional approach)
     println!("=== Generic placeholders ===");
     let input1 = "Alice: 30 years old";
     let mut name1: String = String::new();
@@ -15,7 +15,7 @@ fn demonstrate_new_syntax() {
     assert_eq!(age1, 30);
     assert_eq!(unit1, "years");
 
-    // Example 2: Variable names for clarity
+    // Example 2: Variable names for clarity (syntax accepted but works positionally)
     println!("\n=== Variable names for clarity ===");
     let input2 = "Bob: 25 years old";
     let mut name2: String = String::new();
@@ -54,22 +54,24 @@ fn demonstrate_new_syntax() {
 }
 
 #[test]
-fn test_variable_order_different_from_params() {
-    // Test where variables in format string are in different order than parameters
-    // Current implementation matches by position, not by variable name
+fn test_positional_parsing() {
+    // Current implementation: all variables are assigned positionally regardless of names
     let input = "Score: 95, Player: Alice";
-    let mut _player: String = String::new();
-    let mut _score: u32 = 0;
-
-    // Format string has {score} first, then {player}, but parameters are _player, _score
-    // This means: _player gets "95", _score gets "Alice" - which will fail
-    let result = sscanf!(input, "Score: {score}, Player: {player}", _player, _score);
-    assert!(result.is_err()); // Should fail because "Alice" can't be parsed as u32
+    let mut first_var: u32 = 0;  // Gets first placeholder value (95)
+    let mut second_var: String = String::new(); // Gets second placeholder value (Alice)
     
-    // Correct way: match parameter order to format order
-    let mut score2: u32 = 0;
-    let mut player2: String = String::new();
-    sscanf!(input, "Score: {score}, Player: {player}", score2, player2).unwrap();
-    assert_eq!(score2, 95);
-    assert_eq!(player2, "Alice");
+    // The variable names in placeholders are ignored - assignment is purely positional
+    sscanf!(input, "Score: {any_name}, Player: {other_name}", first_var, second_var).unwrap();
+    assert_eq!(first_var, 95);
+    assert_eq!(second_var, "Alice");
+}
+
+#[test]
+fn test_type_mismatch_error() {
+    let input = "Score: 95, Player: Alice";
+    let mut wrong_type1: String = String::new(); // Trying to parse "95" as String (this works)
+    let mut wrong_type2: u32 = 0; // Trying to parse "Alice" as u32 (this fails)
+    
+    let result = sscanf!(input, "Score: {score}, Player: {player}", wrong_type1, wrong_type2);
+    assert!(result.is_err()); // Should fail because "Alice" can't be parsed as u32
 }
