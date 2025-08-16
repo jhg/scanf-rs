@@ -3,27 +3,17 @@ use std::{any::Any, io};
 mod format_parser;
 use format_parser::InputFormatToken;
 
-#[derive(Debug, PartialEq, Eq)]
-enum InputType<'a> {
-    Anonymous,
-    Variable(&'a str),
-}
-
-impl<'a> InputType<'a> {
-    // Removed typed method since we no longer support specific types
-}
-
 pub struct InputElement<'a> {
     input: &'a str,
-    required_type: InputType<'a>,
+    variable_name: Option<&'a str>,
 }
 
 impl<'a> InputElement<'a> {
-    fn new(input: &'a str, required_type: InputType<'a>) -> Self {
+    fn new(input: &'a str, variable_name: Option<&'a str>) -> Self {
         Self {
             // No longer need special handling for String type since we removed type checking
             input: input.trim(),
-            required_type,
+            variable_name,
         }
     }
 
@@ -42,10 +32,7 @@ impl<'a> InputElement<'a> {
 
     #[inline]
     pub fn variable_name(&self) -> Option<&'a str> {
-        match self.required_type {
-            InputType::Variable(name) => Some(name),
-            _ => None,
-        }
+        self.variable_name
     }
 }
 
@@ -87,16 +74,16 @@ impl<'a> InputFormatParser<'a> {
 
     pub fn inputs(&self, input: &'a str) -> io::Result<Vec<InputElement<'a>>> {
         let mut input = input;
-        let mut capture = None;
+        let mut capture: Option<Option<&'a str>> = None;
         let mut input_elements = Vec::with_capacity(self.count_placeholders());
 
         for token in &self.tokens {
             if let &InputFormatToken::Text(text) = token {
                 if let Some(text_start_offset) = input.find(text) {
-                    if let Some(required_type) = capture {
+                    if let Some(variable_name) = capture {
                         capture = None;
                         let input_text = &input[..text_start_offset];
-                        let input_element = InputElement::new(input_text, required_type);
+                        let input_element = InputElement::new(input_text, variable_name);
                         input_elements.push(input_element);
                     }
                     input = &input[(text_start_offset + text.len())..];
@@ -117,17 +104,17 @@ impl<'a> InputFormatParser<'a> {
 
             match token {
                 InputFormatToken::Anonymous => {
-                    capture = Some(InputType::Anonymous);
+                    capture = Some(None);
                 }
                 InputFormatToken::Variable(name) => {
-                    capture = Some(InputType::Variable(name));
+                    capture = Some(Some(name));
                 }
                 InputFormatToken::Text(_) => unreachable!(),
             }
         }
 
-        if let Some(required_type) = capture {
-            let input_element = InputElement::new(input, required_type);
+        if let Some(variable_name) = capture {
+            let input_element = InputElement::new(input, variable_name);
             input_elements.push(input_element);
         }
 
