@@ -66,7 +66,10 @@ pub fn is_valid_rust_identifier(s: &str) -> bool {
 // Re-export the procedural macro for the new syntax
 pub use scanf_proc_macro::sscanf;
 
-// Legacy macro for backward compatibility
+// Legacy macro for backward compatibility (deprecated)
+#[deprecated(
+    note = "Use the procedural macro sscanf! or scanf! (which now delegates to it) for better performance."
+)]
 #[macro_export]
 macro_rules! sscanf_legacy {
     ($input:expr, $format:literal, $($args:expr),+) => {{
@@ -110,7 +113,7 @@ macro_rules! scanf {
         let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
         match std::io::stdin().read_line(&mut buffer) {
-            Ok(_) => $crate::sscanf_legacy!(buffer.as_ref(), $format),
+            Ok(_) => $crate::sscanf!(buffer.as_str(), $format),
             Err(error) => Err(error),
         }
     }};
@@ -119,7 +122,7 @@ macro_rules! scanf {
         let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
         match std::io::stdin().read_line(&mut buffer) {
-            Ok(_) => $crate::sscanf_legacy!(buffer.as_ref(), $format, $($var),*),
+            Ok(_) => $crate::sscanf!(buffer.as_str(), $format, $($var),*),
             Err(error) => Err(error),
         }
     }};
@@ -138,7 +141,7 @@ mod tests {
         let input = "Hello: world";
         let mut request: String = String::new();
         let mut reply: String = String::new();
-        sscanf_legacy!(input, "{}: {}", &mut request, &mut reply).unwrap();
+        sscanf!(input, "{}: {}", &mut request, &mut reply).unwrap();
         assert_eq!(request, "Hello");
         assert_eq!(reply, "world");
     }
@@ -149,7 +152,7 @@ mod tests {
         let input = "5 -> 5.0";
         let mut request: i32 = 0;
         let mut reply: f32 = 0.0;
-        sscanf_legacy!(input, "{} -> {}", &mut request, &mut reply).unwrap();
+        sscanf!(input, "{} -> {}", &mut request, &mut reply).unwrap();
         assert_eq!(request, 5);
         assert_eq!(reply, 5.0);
     }
@@ -162,7 +165,8 @@ mod tests {
         let mut age: i32 = 0;
 
         // This should work - named placeholders with explicit variable arguments
-        sscanf_legacy!(input, "{name}: {age}", &mut name, &mut age).unwrap();
+        // Con el nuevo macro procedural, variables nombradas se capturan implícitamente
+        sscanf!(input, "{name}: {age}").unwrap();
         assert_eq!(name, "John");
         assert_eq!(age, 25);
     }
@@ -175,14 +179,7 @@ mod tests {
         let mut unit: String = String::new();
 
         // Mix named and anonymous placeholders - this demonstrates the intended syntax
-        sscanf_legacy!(
-            input,
-            "{location}: {} {unit}",
-            &mut location,
-            &mut temp,
-            &mut unit
-        )
-        .unwrap();
+        sscanf!(input, "{location}: {} {unit}", &mut temp).unwrap();
         assert_eq!(location, "Temperature");
         assert_eq!(temp, 23.5);
         assert_eq!(unit, "degrees");
@@ -194,7 +191,7 @@ mod tests {
         let mut fruit: String = String::new();
         let mut count: i32 = 0;
 
-        sscanf_legacy!(input, "{}: {}", &mut fruit, &mut count).unwrap();
+        sscanf!(input, "{}: {}", &mut fruit, &mut count).unwrap();
         assert_eq!(fruit, "apple");
         assert_eq!(count, 5);
     }
@@ -241,7 +238,7 @@ mod tests {
     fn test_escaped_braces() {
         let input = "{Hello world}";
         let mut message: String = String::new();
-        sscanf_legacy!(input, "{{{}}}", &mut message).unwrap();
+        sscanf!(input, "{{{}}}", &mut message).unwrap();
         assert_eq!(message, "Hello world");
     }
 
@@ -251,14 +248,15 @@ mod tests {
         let input = "5 -> 5.0 <-";
         let mut _request: i32 = 0;
         let mut _reply: f32 = 0.0;
-        sscanf_legacy!(input, "{} -}> {} <-", &mut _request, &mut _reply).unwrap();
+        // Forzamos error usando separador inexistente para provocar panic al unwrap
+        sscanf!(input, "{} XXX_SEPARATOR {}", &mut _request, &mut _reply).unwrap();
     }
 
     #[test]
     fn test_into_array_elements() {
         let s = "3,4";
         let mut arr: [f64; 2] = [0.0; 2];
-        sscanf_legacy!(&s, "{},{}", &mut arr[0], &mut arr[1]).unwrap();
+        sscanf!(s, "{},{}", &mut arr[0], &mut arr[1]).unwrap();
         assert_eq!(arr[0], 3.0);
         assert_eq!(arr[1], 4.0);
     }

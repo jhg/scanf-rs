@@ -1,4 +1,3 @@
-use scanf::sscanf_legacy;
 use scanf_proc_macro::sscanf;
 
 #[test]
@@ -43,34 +42,21 @@ fn test_fully_explicit_still_works() {
 
 #[test]
 fn test_positional_parsing() {
-    // Current implementation: all variables are assigned positionally regardless of names
+    // Procedural macro: placeholders nombrados asignan a variables con ese nombre
     let input = "Score: 95, Player: Alice";
-    let mut first_var: u32 = 0; // Gets first placeholder value (95)
-    let mut second_var: String = String::new(); // Gets second placeholder value (Alice)
-
-    // The variable names in placeholders are ignored - assignment is purely positional
-    sscanf_legacy!(
-        input,
-        "Score: {any_name}, Player: {other_name}",
-        &mut first_var,
-        &mut second_var
-    )
-    .unwrap();
-    assert_eq!(first_var, 95);
-    assert_eq!(second_var, "Alice");
+    let mut any_name: u32 = 0; // 95
+    let mut other_name: String = String::new(); // Alice
+    sscanf!(input, "Score: {any_name}, Player: {other_name}").unwrap();
+    assert_eq!(any_name, 95);
+    assert_eq!(other_name, "Alice");
 }
 
 #[test]
 fn test_type_mismatch_error() {
     let input = "Score: 95, Player: Alice";
-    let mut wrong_type1: String = String::new(); // Trying to parse "95" as String (this works)
-    let mut wrong_type2: u32 = 0; // Trying to parse "Alice" as u32 (this fails)
-
-    let result = sscanf_legacy!(
-        input,
-        "Score: {score}, Player: {player}",
-        &mut wrong_type1,
-        &mut wrong_type2
-    );
-    assert!(result.is_err()); // Should fail because "Alice" can't be parsed as u32
+    let mut score: String = String::new(); // "95" parse OK as String
+    let mut _player: u32 = 0; // Falla al parsear "Alice" como u32
+    let result = sscanf!(input, "Score: {score}, Player: {_player}");
+    assert!(result.is_err());
+    assert_eq!(score, "95"); // usar variable
 }
