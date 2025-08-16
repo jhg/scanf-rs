@@ -1,7 +1,7 @@
 #![allow(unused_must_use)]
 #![allow(clippy::needless_return)]
 
-use std::{any::Any, error::Error, str::FromStr, hint::black_box};
+use std::{any::Any, error::Error, hint::black_box, str::FromStr};
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 
