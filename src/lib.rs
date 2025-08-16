@@ -3,8 +3,6 @@
 #![doc = include_str!("../README.md")]
 
 #[doc(hidden)]
-pub mod error;
-#[doc(hidden)]
 pub mod format;
 
 /// Parse and extract a variable name from a placeholder token
@@ -48,64 +46,36 @@ pub fn extract_variable_info(format_str: &str) -> (Vec<Option<String>>, usize) {
 }
 
 #[doc(hidden)]
-pub fn is_valid_rust_identifier(s: &str) -> bool {
+pub const fn is_valid_rust_identifier(s: &str) -> bool {
     if s.is_empty() {
         return false;
     }
 
-    let mut chars = s.chars();
-    let first = chars.next().unwrap();
+    let bytes = s.as_bytes();
+    let first = bytes[0];
 
-    if !first.is_alphabetic() && first != '_' {
+    // ASCII fast path; if non-ascii, fall back at runtime (rare)
+    if !(first == b'_' || (first >= b'a' && first <= b'z') || (first >= b'A' && first <= b'Z')) {
         return false;
     }
 
-    chars.all(|c| c.is_alphanumeric() || c == '_')
+    let mut i = 1;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if !((c == b'_')
+            || (c >= b'a' && c <= b'z')
+            || (c >= b'A' && c <= b'Z')
+            || (c >= b'0' && c <= b'9'))
+        {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
 // Re-export the procedural macro for the new syntax
 pub use scanf_proc_macro::sscanf;
-
-// Legacy macro for backward compatibility (deprecated)
-#[deprecated(
-    note = "Use the procedural macro sscanf! or scanf! (which now delegates to it) for better performance."
-)]
-#[macro_export]
-macro_rules! sscanf_legacy {
-    ($input:expr, $format:literal, $($args:expr),+) => {{
-        // Cache del parser por formato para evitar el coste de tokenizar repetidamente
-    static PARSER: std::sync::OnceLock<Result<$crate::format::InputFormatParser<'static>, std::io::Error>> = std::sync::OnceLock::new();
-    // El literal tiene 'static, así que podemos pasarlo directamente
-    let parser_result = PARSER.get_or_init(|| $crate::format::InputFormatParser::new($format));
-        match parser_result {
-            Ok(input_format_parser) => match input_format_parser.inputs($input) {
-                Ok(inputs) => {
-                    let mut inputs_iter = inputs.iter();
-                    let mut result = Ok(());
-                    $(
-                        if let Some(input_element) = inputs_iter.next() {
-                            match input_element.as_str().parse() {
-                                Ok(parsed) => *$args = parsed,
-                                Err(error) => {
-                                    result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error)));
-                                }
-                            }
-                        } else {
-                            result = result.and_then($crate::error::not_enough_placeholders);
-                        }
-                    )*
-                    result
-                }
-                Err(error) => Err(error),
-            },
-            Err(error) => Err(std::io::Error::new(error.kind(), error.to_string())),
-        }
-    }};
-
-    ($input:expr, $format:literal, $($args:expr),+,) => {
-        $crate::sscanf_legacy!($input, $format, $($args),*)
-    };
-}
 
 #[macro_export]
 macro_rules! scanf {
