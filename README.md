@@ -5,6 +5,7 @@ If you know it from C, same functionality but with memory safety, plus new enhan
 ## scanf! & sscanf! - Now with Implicit Variable Capture!
 
 ### Traditional Syntax (Still Supported)
+
 ```no_run
 use scanf::scanf;
 

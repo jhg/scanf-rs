@@ -1,56 +1,44 @@
+use scanf_proc_macro::sscanf;
 use scanf::sscanf_legacy;
 
 #[test]
-fn demonstrate_basic_functionality() {
-    // Example 1: Generic placeholders (traditional approach)
-    println!("=== Generic placeholders ===");
-    let input1 = "Alice: 30 years old";
-    let mut name1: String = String::new();
-    let mut age1: u32 = 0;
-    let mut unit1: String = String::new();
-
-    sscanf_legacy!(input1, "{}: {} {} old", &mut name1, &mut age1, &mut unit1).unwrap();
-    println!("Parsed: name={}, age={}, unit={}", name1, age1, unit1);
-    assert_eq!(name1, "Alice");
-    assert_eq!(age1, 30);
-    assert_eq!(unit1, "years");
-
-    // Example 2: Variable names for clarity (syntax accepted but works positionally)
-    println!("\n=== Variable names for clarity ===");
-    let input2 = "Bob: 25 years old";
-    let mut name2: String = String::new();
-    let mut age2: u32 = 0;
-    let mut unit2: String = String::new();
-
-    sscanf_legacy!(input2, "{name2}: {age2} {unit2} old", &mut name2, &mut age2, &mut unit2).unwrap();
-    println!("Parsed: name={}, age={}, unit={}", name2, age2, unit2);
-    assert_eq!(name2, "Bob");
-    assert_eq!(age2, 25);
-    assert_eq!(unit2, "years");
-
-    // Example 3: Mixed syntax with variable names and generic placeholders
-    println!("\n=== Mixed syntax ===");
-    let input3 = "Charlie: 35.5 kg";
+fn test_implicit_variable_capture() {
+    let input = "Charlie: 35.5 kg";
     let mut name3: String = String::new();
     let mut weight: f32 = 0.0;
     let mut unit3: String = String::new();
 
-    sscanf_legacy!(input3, "{name3}: {} {unit3}", &mut name3, &mut weight, &mut unit3).unwrap();
-    println!("Parsed: name={}, weight={}, unit={}", name3, weight, unit3);
+    sscanf!(input, "{name3}: {weight} {unit3}").unwrap();
+
     assert_eq!(name3, "Charlie");
     assert_eq!(weight, 35.5);
     assert_eq!(unit3, "kg");
+}
 
-    // Example 4: Pure generic placeholders
-    println!("\n=== Pure generic placeholders ===");
-    let input4 = "Diana: 28";
-    let mut name4: String = String::new();
-    let mut age4: u32 = 0;
+#[test]
+fn test_mixed_implicit_and_explicit() {
+    let input = "Alice: 25 years";
+    let mut name: String = String::new();
+    let mut age: i32 = 0;
+    let mut unit: String = String::new();
 
-    sscanf_legacy!(input4, "{}: {}", &mut name4, &mut age4).unwrap();
-    println!("Parsed: name={}, age={}", name4, age4);
-    assert_eq!(name4, "Diana");
-    assert_eq!(age4, 28);
+    sscanf!(input, "{name}: {} {unit}", &mut age).unwrap();
+
+    assert_eq!(name, "Alice");
+    assert_eq!(age, 25);
+    assert_eq!(unit, "years");
+}
+
+#[test]
+fn test_fully_explicit_still_works() {
+    let input = "Bob: 30";
+    let mut name: String = String::new();
+    let mut age: i32 = 0;
+
+    sscanf!(input, "{}: {}", &mut name, &mut age).unwrap();
+
+    assert_eq!(name, "Bob");
+    assert_eq!(age, 30);
 }
 
 #[test]
