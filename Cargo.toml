@@ -24,7 +24,6 @@ exclude = [
 edition = "2024"
 
 [dependencies]
-nom = "8"
 scanf-proc-macro = { path = "scanf-proc-macro", version = "2.0.0" }
 
 [dev-dependencies]
