@@ -23,7 +23,9 @@ impl<'a> InputElement<'a> {
     }
 
     #[inline]
-    #[deprecated(note = "Type checking is no longer needed since we removed type syntax. The compiler enforces type compatibility.")]
+    #[deprecated(
+        note = "Type checking is no longer needed since we removed type syntax. The compiler enforces type compatibility."
+    )]
     pub fn is_required_type_of_var<T: ?Sized + Any>(&self, _var: &T) -> bool {
         // Since we removed type checking, all placeholders accept any type
         // The compiler will enforce type compatibility anyway

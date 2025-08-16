@@ -13,22 +13,22 @@ pub fn extract_variable_info(format_str: &str) -> (Vec<Option<String>>, usize) {
     let mut vars = Vec::new();
     let mut anonymous_count = 0;
     let mut chars = format_str.chars().peekable();
-    
+
     while let Some(ch) = chars.next() {
         if ch == '{' {
             if chars.peek() == Some(&'{') {
                 chars.next(); // skip escaped brace
                 continue;
             }
-            
+
             let mut content = String::new();
-            while let Some(ch) = chars.next() {
+            for ch in chars.by_ref() {
                 if ch == '}' {
                     break;
                 }
                 content.push(ch);
             }
-            
+
             if content.is_empty() {
                 vars.push(None);
                 anonymous_count += 1;
@@ -43,7 +43,7 @@ pub fn extract_variable_info(format_str: &str) -> (Vec<Option<String>>, usize) {
             chars.next(); // skip escaped brace
         }
     }
-    
+
     (vars, anonymous_count)
 }
 
@@ -52,14 +52,14 @@ pub fn is_valid_rust_identifier(s: &str) -> bool {
     if s.is_empty() {
         return false;
     }
-    
+
     let mut chars = s.chars();
     let first = chars.next().unwrap();
-    
+
     if !first.is_alphabetic() && first != '_' {
         return false;
     }
-    
+
     chars.all(|c| c.is_alphanumeric() || c == '_')
 }
 
@@ -96,9 +96,9 @@ macro_rules! sscanf_legacy {
             Err(error) => Err(error),
         }
     }};
-    
-    ($input:expr, $format:literal, $($args:expr),+,) => { 
-        $crate::sscanf_legacy!($input, $format, $($args),*) 
+
+    ($input:expr, $format:literal, $($args:expr),+,) => {
+        $crate::sscanf_legacy!($input, $format, $($args),*)
     };
 }
 
@@ -112,7 +112,7 @@ macro_rules! scanf {
             Err(error) => Err(error),
         }
     }};
-    
+
     ($format:literal, $($var:expr),+ ) => {{
         let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -121,9 +121,9 @@ macro_rules! scanf {
             Err(error) => Err(error),
         }
     }};
-    
-    ($format:literal, $($var:expr),+ , ) => { 
-        $crate::scanf!($format, $($var),*) 
+
+    ($format:literal, $($var:expr),+ , ) => {
+        $crate::scanf!($format, $($var),*)
     };
 }
 
@@ -173,7 +173,14 @@ mod tests {
         let mut unit: String = String::new();
 
         // Mix named and anonymous placeholders - this demonstrates the intended syntax
-        sscanf_legacy!(input, "{location}: {} {unit}", &mut location, &mut temp, &mut unit).unwrap();
+        sscanf_legacy!(
+            input,
+            "{location}: {} {unit}",
+            &mut location,
+            &mut temp,
+            &mut unit
+        )
+        .unwrap();
         assert_eq!(location, "Temperature");
         assert_eq!(temp, 23.5);
         assert_eq!(unit, "degrees");
@@ -184,7 +191,7 @@ mod tests {
         let input = "apple: 5";
         let mut fruit: String = String::new();
         let mut count: i32 = 0;
-        
+
         sscanf_legacy!(input, "{}: {}", &mut fruit, &mut count).unwrap();
         assert_eq!(fruit, "apple");
         assert_eq!(count, 5);
@@ -198,7 +205,7 @@ mod tests {
         assert!(is_valid_rust_identifier("CamelCase"));
         assert!(is_valid_rust_identifier("snake_case"));
         assert!(is_valid_rust_identifier("name123"));
-        
+
         assert!(!is_valid_rust_identifier("123invalid"));
         assert!(!is_valid_rust_identifier("with-dash"));
         assert!(!is_valid_rust_identifier("with space"));
@@ -210,15 +217,21 @@ mod tests {
     fn test_extract_variable_info() {
         // Test helper function that parses format strings
         let (vars, anon_count) = extract_variable_info("{name}: {} {age}");
-        assert_eq!(vars, vec![Some("name".to_string()), None, Some("age".to_string())]);
+        assert_eq!(
+            vars,
+            vec![Some("name".to_string()), None, Some("age".to_string())]
+        );
         assert_eq!(anon_count, 1);
-        
+
         let (vars, anon_count) = extract_variable_info("{} -> {}");
         assert_eq!(vars, vec![None, None]);
         assert_eq!(anon_count, 2);
-        
+
         let (vars, anon_count) = extract_variable_info("{user}: {score}");
-        assert_eq!(vars, vec![Some("user".to_string()), Some("score".to_string())]);
+        assert_eq!(
+            vars,
+            vec![Some("user".to_string()), Some("score".to_string())]
+        );
         assert_eq!(anon_count, 0);
     }
 
