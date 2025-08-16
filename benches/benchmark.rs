@@ -47,16 +47,16 @@ where
     sscanf!(
         input,
         "{},{},{},{},{},{},{},{},{},{}",
-        number0,
-        number1,
-        number2,
-        number3,
-        number4,
-        number5,
-        number6,
-        number7,
-        number8,
-        number9
+        &mut number0,
+        &mut number1,
+        &mut number2,
+        &mut number3,
+        &mut number4,
+        &mut number5,
+        &mut number6,
+        &mut number7,
+        &mut number8,
+        &mut number9
     )
     .unwrap();
     return (
@@ -74,7 +74,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("Split with sscanf", |b| {
         b.iter(|| {
-            sscanf!(input, "{} {}", product, price);
+            sscanf!(input, "{} {}", &mut product, &mut price);
         })
     });
     group.bench_function("Split with str::split", |b| {
@@ -137,7 +137,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf i32", |b| {
         b.iter(|| {
             let mut first_number: i32 = 0;
-            sscanf!(input, "{}", first_number);
+            sscanf!(input, "{}", &mut first_number);
             black_box(first_number);
         })
     });
@@ -146,7 +146,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf i64", |b| {
         b.iter(|| {
             let mut first_number: i64 = 0;
-            sscanf!(input, "{}", first_number);
+            sscanf!(input, "{}", &mut first_number);
             black_box(first_number);
         })
     });
@@ -155,7 +155,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf u32", |b| {
         b.iter(|| {
             let mut first_number: u32 = 0;
-            sscanf!(input, "{}", first_number);
+            sscanf!(input, "{}", &mut first_number);
             black_box(first_number);
         })
     });
@@ -164,7 +164,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf u64", |b| {
         b.iter(|| {
             let mut first_number: u64 = 0;
-            sscanf!(input, "{}", first_number);
+            sscanf!(input, "{}", &mut first_number);
             black_box(first_number);
         })
     });
@@ -173,7 +173,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf f32", |b| {
         b.iter(|| {
             let mut first_number: f32 = 0.0;
-            sscanf!(input, "{}", first_number);
+            sscanf!(input, "{}", &mut first_number);
             black_box(first_number);
         })
     });
@@ -182,7 +182,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf f64", |b| {
         b.iter(|| {
             let mut first_number: f64 = 0.0;
-            sscanf!(input, "{}", first_number);
+            sscanf!(input, "{}", &mut first_number);
             black_box(first_number);
         })
     });
@@ -191,7 +191,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf string", |b| {
         b.iter(|| {
             let mut product: String = String::new();
-            sscanf!(input, "{}", product);
+            sscanf!(input, "{}", &mut product);
             black_box(product);
         })
     });
@@ -200,7 +200,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf string with brackets", |b| {
         b.iter(|| {
             let mut product: String = String::new();
-            sscanf!(input, "{}", product);
+            sscanf!(input, "{}", &mut product);
             black_box(product);
         })
     });
@@ -209,7 +209,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf string with brackets ignored", |b| {
         b.iter(|| {
             let mut product: String = String::new();
-            sscanf!(input, "{{{}}}", product);
+            sscanf!(input, "{{{}}}", &mut product);
             black_box(product);
         })
     });
@@ -219,7 +219,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let mut product: String = String::new();
             let mut price: f64 = 0.0;
-            sscanf!(input, "{} -> {}", product, price);
+            sscanf!(input, "{} -> {}", &mut product, &mut price);
             black_box(product);
             black_box(price);
         })
@@ -230,7 +230,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let mut first_number: u32 = 0;
             let mut second_number: f64 = 0.0;
-            sscanf!(input, "{} -> {}", first_number, second_number);
+            sscanf!(input, "{} -> {}", &mut first_number, &mut second_number);
             black_box(first_number);
             black_box(second_number);
         })

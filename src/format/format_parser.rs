@@ -34,7 +34,7 @@ impl<'a> InputFormatToken<'a> {
     }
 }
 
-pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
+pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken<'_>>> {
     let (remaining, mut tokens) = many0(input_format_token).parse(input)?;
 
     if !remaining.is_empty() {
@@ -44,11 +44,11 @@ pub(super) fn tokenize(input: &str) -> IResult<&str, Vec<InputFormatToken>> {
     return Ok(("", tokens));
 }
 
-fn input_format_token(input: &str) -> IResult<&str, InputFormatToken> {
+fn input_format_token(input: &str) -> IResult<&str, InputFormatToken<'_>> {
     alt((type_placeholder_token, text_token)).parse(input)
 }
 
-fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken> {
+fn type_placeholder_token(input: &str) -> IResult<&str, InputFormatToken<'_>> {
     let mut type_parser = context(
         "input tag",
         delimited(char('{'), identifier_or_empty, char('}')),
@@ -72,7 +72,7 @@ fn identifier(input: &str) -> IResult<&str, &str> {
     take_while1(|c: char| c.is_alphanumeric() || c == '_').parse(input)
 }
 
-fn text_token(input: &str) -> IResult<&str, InputFormatToken> {
+fn text_token(input: &str) -> IResult<&str, InputFormatToken<'_>> {
     let (remaining, text) =
         alt((tag("{{"), tag("}}"), take_until("{"), take_until("}"))).parse(input)?;
 
