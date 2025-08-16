@@ -9,6 +9,7 @@ repository = "https://github.com/jhg/scanf-rs"
 exclude = [
     ".github/**",
     ".vscode/**",
+    ".idea/**",
     "benches/**",
     "Cargo.lock",
     "LICENSE",
