@@ -70,30 +70,32 @@ pub use scanf_proc_macro::sscanf;
 #[macro_export]
 macro_rules! sscanf_legacy {
     ($input:expr, $format:literal, $($args:expr),+) => {{
-        match $crate::format::InputFormatParser::new($format) {
-            Ok(input_format_parser) => {
-                match input_format_parser.inputs($input) {
-                    Ok(inputs) => {
-                        let mut inputs_iter = inputs.iter();
-                        let mut result = Ok(());
-                        $(
-                            if let Some(input_element) = inputs_iter.next() {
-                                match input_element.as_str().parse() {
-                                    Ok(parsed) => *$args = parsed,
-                                    Err(error) => {
-                                        result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error)));
-                                    }
+        // Cache del parser por formato para evitar el coste de tokenizar repetidamente
+    static PARSER: std::sync::OnceLock<Result<$crate::format::InputFormatParser<'static>, std::io::Error>> = std::sync::OnceLock::new();
+    // El literal tiene 'static, así que podemos pasarlo directamente
+    let parser_result = PARSER.get_or_init(|| $crate::format::InputFormatParser::new($format));
+        match parser_result {
+            Ok(input_format_parser) => match input_format_parser.inputs($input) {
+                Ok(inputs) => {
+                    let mut inputs_iter = inputs.iter();
+                    let mut result = Ok(());
+                    $(
+                        if let Some(input_element) = inputs_iter.next() {
+                            match input_element.as_str().parse() {
+                                Ok(parsed) => *$args = parsed,
+                                Err(error) => {
+                                    result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error)));
                                 }
-                            } else {
-                                result = result.and_then($crate::error::not_enough_placeholders);
                             }
-                        )*
-                        result
-                    }
-                    Err(error) => Err(error),
+                        } else {
+                            result = result.and_then($crate::error::not_enough_placeholders);
+                        }
+                    )*
+                    result
                 }
-            }
-            Err(error) => Err(error),
+                Err(error) => Err(error),
+            },
+            Err(error) => Err(std::io::Error::new(error.kind(), error.to_string())),
         }
     }};
 
