@@ -86,22 +86,6 @@ fn sscanf_benchmark(c: &mut Criterion) {
     });
     group.finish();
 
-    let mut group = c.benchmark_group("input-format-parse-benchmark");
-    for input_format in INPUT_FORMATS {
-        group.throughput(Throughput::Bytes(input_format.len() as u64));
-        group.bench_with_input(
-            format!("Parse input format {:?}", input_format),
-            input_format,
-            |b, input_format| {
-                b.iter(|| {
-                    let input_parser = scanf::format::InputFormatParser::new(input_format).unwrap();
-                    black_box(input_parser);
-                })
-            },
-        );
-    }
-    group.finish();
-
     let mut group = c.benchmark_group("throughput-benchmark");
     for (i, &input) in U16_NUMBERS_SEPARATED_BY_COMMAS.iter().enumerate() {
         group.throughput(Throughput::Bytes(input.len() as u64));

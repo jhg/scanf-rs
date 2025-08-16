@@ -1,4 +1,4 @@
-use scanf_proc_macro::sscanf;
+use scanf::sscanf;
 
 #[test]
 fn test_legacy_basic_functionality() {
