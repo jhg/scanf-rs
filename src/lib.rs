@@ -74,33 +74,8 @@ pub const fn is_valid_rust_identifier(s: &str) -> bool {
     true
 }
 
-// Re-export the procedural macro for the new syntax
-pub use scanf_proc_macro::sscanf;
-
-#[macro_export]
-macro_rules! scanf {
-    ($format:literal) => {{
-        let mut buffer = String::new();
-        let _ = std::io::Write::flush(&mut std::io::stdout());
-        match std::io::stdin().read_line(&mut buffer) {
-            Ok(_) => $crate::sscanf!(buffer.as_str(), $format),
-            Err(error) => Err(error),
-        }
-    }};
-
-    ($format:literal, $($var:expr),+ ) => {{
-        let mut buffer = String::new();
-        let _ = std::io::Write::flush(&mut std::io::stdout());
-        match std::io::stdin().read_line(&mut buffer) {
-            Ok(_) => $crate::sscanf!(buffer.as_str(), $format, $($var),*),
-            Err(error) => Err(error),
-        }
-    }};
-
-    ($format:literal, $($var:expr),+ , ) => {
-        $crate::scanf!($format, $($var),*)
-    };
-}
+// Re-export the procedural macros
+pub use scanf_proc_macro::{sscanf, scanf};
 
 #[cfg(test)]
 mod tests {
