@@ -75,7 +75,7 @@ pub const fn is_valid_rust_identifier(s: &str) -> bool {
 }
 
 // Re-export the procedural macros
-pub use scanf_proc_macro::{sscanf, scanf};
+pub use scanf_proc_macro::{scanf, sscanf};
 
 #[cfg(test)]
 mod tests {
