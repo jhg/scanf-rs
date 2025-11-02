@@ -14,6 +14,12 @@ use syn::{
     token::Comma,
 };
 
+/// Arguments for the `sscanf!` macro.
+/// 
+/// Consists of:
+/// - `input`: The string expression to parse
+/// - `format`: The format string literal containing placeholders
+/// - `args`: Optional explicit arguments for anonymous placeholders
 struct SscanfArgs {
     input: Expr,
     format: LitStr,
@@ -43,47 +49,24 @@ impl Parse for SscanfArgs {
     }
 }
 
+/// Represents a placeholder in a format string.
+/// 
+/// Placeholders can be either named (e.g., `{variable}`) or anonymous (e.g., `{}`).
 #[derive(Debug, PartialEq, Clone)]
 enum Placeholder {
+    /// A named placeholder that captures to a specific variable
     Named(String),
+    /// An anonymous placeholder that requires an explicit argument
     Anonymous,
 }
 
-fn parse_format_string(format_str: &str) -> Vec<Placeholder> {
-    let mut placeholders = Vec::new();
-    let mut chars = format_str.chars().peekable();
 
-    while let Some(ch) = chars.next() {
-        if ch == '{' {
-            if chars.peek() == Some(&'{') {
-                chars.next(); // skip escaped brace
-                continue;
-            }
 
-            let mut content = String::new();
-            for ch in chars.by_ref() {
-                if ch == '}' {
-                    break;
-                }
-                content.push(ch);
-            }
-
-            if content.is_empty() {
-                placeholders.push(Placeholder::Anonymous);
-            } else if is_valid_identifier(&content) {
-                placeholders.push(Placeholder::Named(content));
-            } else {
-                // Invalid identifier, treat as anonymous
-                placeholders.push(Placeholder::Anonymous);
-            }
-        } else if ch == '}' && chars.peek() == Some(&'}') {
-            chars.next(); // skip escaped brace
-        }
-    }
-
-    placeholders
-}
-
+/// Checks if a string is a valid Rust identifier.
+/// 
+/// A valid identifier must:
+/// - Start with an alphabetic character or underscore
+/// - Contain only alphanumeric characters or underscores
 fn is_valid_identifier(s: &str) -> bool {
     if s.is_empty() {
         return false;
@@ -106,78 +89,9 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
     let input_expr = &args.input;
     let format_lit = &args.format;
     let format_str = format_lit.value();
-
-    let placeholders = parse_format_string(&format_str);
     let explicit_args: Vec<_> = args.args.iter().collect();
 
-    // Generate the parsing and assignment code
-    let mut assignments = Vec::new();
-    let mut arg_index = 0;
-
-    for placeholder in placeholders {
-        match placeholder {
-            Placeholder::Named(var_name) => {
-                // Generate code to assign to the named variable
-                let var_ident = Ident::new(&var_name, Span::call_site());
-                assignments.push(quote! {
-                    if let Some(input_element) = inputs_iter.next() {
-                        match input_element.as_str().parse() {
-                            Ok(parsed) => #var_ident = parsed,
-                            Err(error) => {
-                                result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error)));
-                            }
-                        }
-                    } else {
-                        result = result.and(Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            "Not enough input values for placeholders"
-                        )));
-                    }
-                });
-            }
-            Placeholder::Anonymous => {
-                // Use the provided argument
-                if arg_index < explicit_args.len() {
-                    let arg_expr = explicit_args[arg_index];
-                    assignments.push(quote! {
-                        if let Some(input_element) = inputs_iter.next() {
-                            match input_element.as_str().parse() {
-                                Ok(parsed) => *#arg_expr = parsed,
-                                Err(error) => {
-                                    result = result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error)));
-                                }
-                            }
-                        } else {
-                            result = result.and(Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidInput,
-                                "Not enough input values for placeholders"
-                            )));
-                        }
-                    });
-                    arg_index += 1;
-                } else {
-                    return syn::Error::new(
-                        format_lit.span(),
-                        "Anonymous placeholder '{}' found but no corresponding argument provided",
-                    )
-                    .to_compile_error()
-                    .into();
-                }
-            }
-        }
-    }
-
-    // Check if there are unused arguments
-    if arg_index < explicit_args.len() {
-        return syn::Error::new(
-            explicit_args[arg_index].span(),
-            "Too many arguments provided for format string",
-        )
-        .to_compile_error()
-        .into();
-    }
-
-    // Compile-time tokenization (text segments + placeholder sequence) to eliminar coste runtime
+    // Compile-time tokenization (text segments + placeholder sequence) to eliminate runtime cost
     #[derive(Debug, Clone)]
     enum CTToken {
         Text(String),
@@ -266,18 +180,33 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                                 if let Some(pos) = __rest.find(#lit_text) {
                                     let slice = &__rest[..pos];
                                     match slice.parse() {
-                                        Ok(parsed) => { #ident = parsed; }
-                                        Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); }
+                                        Ok(parsed) => {
+                                            #ident = parsed;
+                                        }
+                                        Err(error) => {
+                                            __result = __result.and(Err(std::io::Error::new(
+                                                std::io::ErrorKind::InvalidInput,
+                                                error
+                                            )));
+                                        }
                                     }
                                     __rest = &__rest[pos + #lit_text.len()..];
                                 } else {
-                                    __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Can not find text separator {:?}", #lit_text))));
+                                    __result = __result.and(Err(std::io::Error::new(
+                                        std::io::ErrorKind::InvalidInput,
+                                        format!("Can not find text separator {:?}", #lit_text)
+                                    )));
                                 }
                             });
                         }
                         Placeholder::Anonymous => {
                             if anon_index >= explicit_args.len() {
-                                return syn::Error::new(format_lit.span(), "Anonymous placeholder '{}' found but no corresponding argument provided").to_compile_error().into();
+                                return syn::Error::new(
+                                    format_lit.span(),
+                                    "Anonymous placeholder '{}' found but no corresponding argument provided"
+                                )
+                                .to_compile_error()
+                                .into();
                             }
                             let arg_expr = explicit_args[anon_index];
                             anon_index += 1;
@@ -285,12 +214,22 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                                 if let Some(pos) = __rest.find(#lit_text) {
                                     let slice = &__rest[..pos];
                                     match slice.parse() {
-                                        Ok(parsed) => { *#arg_expr = parsed; }
-                                        Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); }
+                                        Ok(parsed) => {
+                                            *#arg_expr = parsed;
+                                        }
+                                        Err(error) => {
+                                            __result = __result.and(Err(std::io::Error::new(
+                                                std::io::ErrorKind::InvalidInput,
+                                                error
+                                            )));
+                                        }
                                     }
                                     __rest = &__rest[pos + #lit_text.len()..];
                                 } else {
-                                    __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Can not find text separator {:?}", #lit_text))));
+                                    __result = __result.and(Err(std::io::Error::new(
+                                        std::io::ErrorKind::InvalidInput,
+                                        format!("Can not find text separator {:?}", #lit_text)
+                                    )));
                                 }
                             });
                         }
@@ -299,11 +238,20 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                     // Just advance over required fixed text at start or between plain texts (rare)
                     generated.push(quote! {
                         if let Some(pos) = __rest.find(#lit_text) {
-                            // ensure we match immediately at position 0
-                            if pos == 0 { __rest = &__rest[#lit_text.len()..]; }
-                            else { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Expected text {:?} at current position", #lit_text)))); }
+                            // Ensure we match immediately at position 0
+                            if pos == 0 {
+                                __rest = &__rest[#lit_text.len()..];
+                            } else {
+                                __result = __result.and(Err(std::io::Error::new(
+                                    std::io::ErrorKind::InvalidInput,
+                                    format!("Expected text {:?} at current position", #lit_text)
+                                )));
+                            }
                         } else {
-                            __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Can not find text separator {:?}", #lit_text))));
+                            __result = __result.and(Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                format!("Can not find text separator {:?}", #lit_text)
+                            )));
                         }
                     });
                 }
@@ -318,8 +266,15 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                 let ident = Ident::new(&name, Span::call_site());
                 generated.push(quote! {
                     match __rest.parse() {
-                        Ok(parsed) => { #ident = parsed; }
-                        Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); }
+                        Ok(parsed) => {
+                            #ident = parsed;
+                        }
+                        Err(error) => {
+                            __result = __result.and(Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                error
+                            )));
+                        }
                     }
                     __rest = ""; // consumed
                 });
@@ -337,8 +292,15 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                 anon_index += 1;
                 generated.push(quote! {
                     match __rest.parse() {
-                        Ok(parsed) => { *#arg_expr = parsed; }
-                        Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); }
+                        Ok(parsed) => {
+                            *#arg_expr = parsed;
+                        }
+                        Err(error) => {
+                            __result = __result.and(Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                error
+                            )));
+                        }
                     }
                     __rest = ""; // consumed
                 });
@@ -366,6 +328,12 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 }
 
 // ===== scanf! procedural macro (reads from stdin) =====
+
+/// Arguments for the `scanf!` macro.
+/// 
+/// Consists of:
+/// - `format`: The format string literal containing placeholders
+/// - `args`: Optional explicit arguments for anonymous placeholders
 struct ScanfArgs {
     format: LitStr,
     args: Punctuated<Expr, Comma>,
@@ -466,19 +434,82 @@ pub fn scanf(input: TokenStream) -> TokenStream {
                     match ph {
                         Placeholder::Named(name) => {
                             let ident = Ident::new(&name, Span::call_site());
-                            generated.push(quote! { if let Some(pos) = __rest.find(#lit_text) { let slice = &__rest[..pos]; match slice.parse() { Ok(parsed) => { #ident = parsed; } Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); } } __rest = &__rest[pos + #lit_text.len()..]; } else { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Can not find text separator {:?}", #lit_text)))); } });
+                            generated.push(quote! {
+                                if let Some(pos) = __rest.find(#lit_text) {
+                                    let slice = &__rest[..pos];
+                                    match slice.parse() {
+                                        Ok(parsed) => {
+                                            #ident = parsed;
+                                        }
+                                        Err(error) => {
+                                            __result = __result.and(Err(std::io::Error::new(
+                                                std::io::ErrorKind::InvalidInput,
+                                                error
+                                            )));
+                                        }
+                                    }
+                                    __rest = &__rest[pos + #lit_text.len()..];
+                                } else {
+                                    __result = __result.and(Err(std::io::Error::new(
+                                        std::io::ErrorKind::InvalidInput,
+                                        format!("Can not find text separator {:?}", #lit_text)
+                                    )));
+                                }
+                            });
                         }
                         Placeholder::Anonymous => {
                             if anon_index >= explicit_args.len() {
-                                return syn::Error::new(format_lit.span(), "Anonymous placeholder '{}' found but no corresponding argument provided").to_compile_error().into();
+                                return syn::Error::new(
+                                    format_lit.span(),
+                                    "Anonymous placeholder '{}' found but no corresponding argument provided"
+                                )
+                                .to_compile_error()
+                                .into();
                             }
                             let arg_expr = explicit_args[anon_index];
                             anon_index += 1;
-                            generated.push(quote! { if let Some(pos) = __rest.find(#lit_text) { let slice = &__rest[..pos]; match slice.parse() { Ok(parsed) => { *#arg_expr = parsed; } Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); } } __rest = &__rest[pos + #lit_text.len()..]; } else { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Can not find text separator {:?}", #lit_text)))); } });
+                            generated.push(quote! {
+                                if let Some(pos) = __rest.find(#lit_text) {
+                                    let slice = &__rest[..pos];
+                                    match slice.parse() {
+                                        Ok(parsed) => {
+                                            *#arg_expr = parsed;
+                                        }
+                                        Err(error) => {
+                                            __result = __result.and(Err(std::io::Error::new(
+                                                std::io::ErrorKind::InvalidInput,
+                                                error
+                                            )));
+                                        }
+                                    }
+                                    __rest = &__rest[pos + #lit_text.len()..];
+                                } else {
+                                    __result = __result.and(Err(std::io::Error::new(
+                                        std::io::ErrorKind::InvalidInput,
+                                        format!("Can not find text separator {:?}", #lit_text)
+                                    )));
+                                }
+                            });
                         }
                     }
                 } else {
-                    generated.push(quote! { if let Some(pos) = __rest.find(#lit_text) { if pos == 0 { __rest = &__rest[#lit_text.len()..]; } else { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Expected text {:?} at current position", #lit_text)))); } } else { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Can not find text separator {:?}", #lit_text)))); } });
+                    generated.push(quote! {
+                        if let Some(pos) = __rest.find(#lit_text) {
+                            if pos == 0 {
+                                __rest = &__rest[#lit_text.len()..];
+                            } else {
+                                __result = __result.and(Err(std::io::Error::new(
+                                    std::io::ErrorKind::InvalidInput,
+                                    format!("Expected text {:?} at current position", #lit_text)
+                                )));
+                            }
+                        } else {
+                            __result = __result.and(Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                format!("Can not find text separator {:?}", #lit_text)
+                            )));
+                        }
+                    });
                 }
             }
         }
@@ -487,7 +518,20 @@ pub fn scanf(input: TokenStream) -> TokenStream {
         match ph {
             Placeholder::Named(name) => {
                 let ident = Ident::new(&name, Span::call_site());
-                generated.push(quote! { match __rest.parse() { Ok(parsed) => { #ident = parsed; } Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); } } __rest = ""; });
+                generated.push(quote! {
+                    match __rest.parse() {
+                        Ok(parsed) => {
+                            #ident = parsed;
+                        }
+                        Err(error) => {
+                            __result = __result.and(Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                error
+                            )));
+                        }
+                    }
+                    __rest = "";
+                });
             }
             Placeholder::Anonymous => {
                 if anon_index >= explicit_args.len() {
@@ -500,7 +544,20 @@ pub fn scanf(input: TokenStream) -> TokenStream {
                 }
                 let arg_expr = explicit_args[anon_index];
                 anon_index += 1;
-                generated.push(quote! { match __rest.parse() { Ok(parsed) => { *#arg_expr = parsed; } Err(error) => { __result = __result.and(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))); } } __rest = ""; });
+                generated.push(quote! {
+                    match __rest.parse() {
+                        Ok(parsed) => {
+                            *#arg_expr = parsed;
+                        }
+                        Err(error) => {
+                            __result = __result.and(Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                error
+                            )));
+                        }
+                    }
+                    __rest = "";
+                });
             }
         }
     }
