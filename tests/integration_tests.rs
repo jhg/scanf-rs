@@ -29,7 +29,7 @@ fn test_variable_name_placeholders() {
     let mut age: i32 = 0;
 
     // This should work - named placeholders with explicit variable arguments
-    // Con el nuevo macro procedural, variables nombradas se capturan implícitamente
+    // With the new procedural macro, named variables are captured implicitly
     sscanf!(input, "{name}: {age}").unwrap();
     assert_eq!(name, "John");
     assert_eq!(age, 25);
@@ -74,7 +74,7 @@ fn test_wrong_format_string() {
     let input = "5 -> 5.0 <-";
     let mut _request: i32 = 0;
     let mut _reply: f32 = 0.0;
-    // Forzamos error usando separador inexistente para provocar panic al unwrap
+    // Force error using non-existent separator to trigger panic on unwrap
     sscanf!(input, "{} XXX_SEPARATOR {}", &mut _request, &mut _reply).unwrap();
 }
 
@@ -129,7 +129,7 @@ fn test_fully_explicit_still_works() {
 
 #[test]
 fn test_positional_parsing() {
-    // Procedural macro: placeholders nombrados asignan a variables con ese nombre
+    // Procedural macro: named placeholders assign to variables with that name
     let input = "Score: 95, Player: Alice";
     let mut any_name: u32 = 0; // 95
     let mut other_name: String = String::new(); // Alice
@@ -142,8 +142,8 @@ fn test_positional_parsing() {
 fn test_type_mismatch_error() {
     let input = "Score: 95, Player: Alice";
     let mut score: String = String::new(); // "95" parse OK as String
-    let mut _player: u32 = 0; // Falla al parsear "Alice" como u32
+    let mut _player: u32 = 0; // Fails to parse "Alice" as u32
     let result = sscanf!(input, "Score: {score}, Player: {_player}");
     assert!(result.is_err());
-    assert_eq!(score, "95"); // usar variable
+    assert_eq!(score, "95"); // use variable
 }
