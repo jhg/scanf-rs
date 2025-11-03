@@ -316,3 +316,55 @@ fn test_empty_string_field_parsing() {
     assert_eq!(value, "");
     assert_eq!(marker, "end");
 }
+
+// ============================================================================
+// Security Tests
+// ============================================================================
+
+#[test]
+fn test_security_reasonable_format_string() {
+    // Test that reasonable format strings work fine
+    let input = "a:b:c:d:e";
+    let mut a = String::new();
+    let mut b = String::new();
+    let mut c = String::new();
+    let mut d = String::new();
+    let mut e = String::new();
+    sscanf!(input, "{a}:{b}:{c}:{d}:{e}").unwrap();
+    // Verify parsing worked correctly
+    assert_eq!(a, "a");
+    assert_eq!(b, "b");
+    assert_eq!(c, "c");
+    assert_eq!(d, "d");
+    assert_eq!(e, "e");
+}
+
+#[test]
+fn test_security_many_placeholders() {
+    // Test with many placeholders (but within limits)
+    let input = "1 2 3 4 5 6 7 8 9 10";
+    let mut n1: i32 = 0;
+    let mut n2: i32 = 0;
+    let mut n3: i32 = 0;
+    let mut n4: i32 = 0;
+    let mut n5: i32 = 0;
+    let mut n6: i32 = 0;
+    let mut n7: i32 = 0;
+    let mut n8: i32 = 0;
+    let mut n9: i32 = 0;
+    let mut n10: i32 = 0;
+    sscanf!(input, "{n1} {n2} {n3} {n4} {n5} {n6} {n7} {n8} {n9} {n10}").unwrap();
+    // Verify all values parsed correctly
+    assert_eq!(n1, 1);
+    assert_eq!(n2 + n3 + n4 + n5 + n6 + n7 + n8 + n9, 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9);
+    assert_eq!(n10, 10);
+}
+
+#[test]
+fn test_security_long_but_valid_identifier() {
+    // Test with long but valid identifier (within 128 char limit)
+    let input = "42";
+    let mut this_is_a_very_long_variable_name_but_still_valid: i32 = 0;
+    sscanf!(input, "{this_is_a_very_long_variable_name_but_still_valid}").unwrap();
+    assert_eq!(this_is_a_very_long_variable_name_but_still_valid, 42);
+}

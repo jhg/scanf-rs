@@ -34,6 +34,42 @@
 //! - Zero-cost abstractions: no hay overhead vs parsing manual
 //! - Sin allocations adicionales en el código generado
 //! - Errores detectados en compile-time cuando es posible
+//! - Pre-allocación inteligente de memoria donde es apropiado
+//!
+//! # Seguridad
+//!
+//! Esta crate implementa múltiples capas de protección:
+//!
+//! ## Protección contra DoS en Compile-Time
+//!
+//! - **Format strings**: Máximo 10,000 bytes
+//! - **Tokens**: Máximo 256 tokens por format string
+//! - **Identificadores**: Máximo 128 caracteres
+//!
+//! Estos límites previenen ataques de denegación de servicio durante la compilación
+//! mientras permiten todos los casos de uso legítimos.
+//!
+//! ## Seguridad de Memoria
+//!
+//! - `#![forbid(unsafe_code)]`: No hay código unsafe
+//! - Uso de `Box<str>` en lugar de `String` donde es apropiado
+//! - No hay integer overflow: todos los índices están bounds-checked
+//! - No hay panics ocultos en código generado
+//!
+//! ## Código Generado
+//!
+//! El código generado usa solo operaciones seguras:
+//! - `.find()` para búsqueda de texto (no panic)
+//! - Slicing solo después de validar índices
+//! - `.parse()` con manejo explícito de errores
+//! - Result types para propagación de errores
+//!
+//! ## Validación de Inputs
+//!
+//! - Format strings vacíos rechazados
+//! - Identificadores Rust inválidos rechazados
+//! - Keywords de Rust rechazados en placeholders
+//! - Braces sin escapar detectados en compile-time
 
 #![forbid(unsafe_code)]
 #![allow(clippy::needless_return)]
@@ -272,7 +308,9 @@ fn tokenize_format_string(
                     tokens.push(FormatToken::Placeholder(Placeholder::Anonymous));
                 } else if is_valid_identifier(&content) {
                     // Convert String to Box<str> for memory efficiency
-                    tokens.push(FormatToken::Placeholder(Placeholder::Named(content.into_boxed_str())));
+                    tokens.push(FormatToken::Placeholder(Placeholder::Named(
+                        content.into_boxed_str(),
+                    )));
                 } else {
                     // Invalid identifier - return error with helpful message
                     return Err(syn::Error::new(
