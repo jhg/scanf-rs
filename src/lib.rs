@@ -31,10 +31,6 @@
 #![allow(clippy::needless_return)]
 #![doc = include_str!("../README.md")]
 
-// ============================================================================
-// Module Organization
-// ============================================================================
-
 mod codegen;
 mod constants;
 mod parsing;
@@ -42,20 +38,12 @@ mod tokenization;
 mod types;
 mod validation;
 
-// ============================================================================
-// Re-exports for Public API
-// ============================================================================
-
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse_macro_input;
 
 use codegen::generate_scanf_implementation;
 use parsing::{ScanfArgs, SscanfArgs};
-
-// ============================================================================
-// Public Macros
-// ============================================================================
 
 /// Parse a string with a format string, similar to C's `sscanf`.
 ///

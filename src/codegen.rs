@@ -87,10 +87,6 @@ pub fn generate_parsing_code(
     Ok((generated, anon_index))
 }
 
-// ============================================================================
-// Code Generation Helpers
-// ============================================================================
-
 /// Generates code for a named placeholder followed by a separator.
 fn generate_named_placeholder_with_separator(
     name: &str,
@@ -100,7 +96,6 @@ fn generate_named_placeholder_with_separator(
     let var_name = format!("variable '{}'", name);
 
     quote! {
-        // Parse named placeholder into variable
         if let Some(pos) = remaining.find(#separator) {
             let slice = &remaining[..pos];
             match slice.parse() {
@@ -136,7 +131,6 @@ fn generate_anonymous_placeholder_with_separator(
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
     quote! {
-        // Parse anonymous placeholder (argument position)
         if let Some(pos) = remaining.find(#separator) {
             let slice = &remaining[..pos];
             match slice.parse() {
@@ -173,9 +167,7 @@ fn generate_anonymous_placeholder_with_separator(
 /// Generates code for matching fixed text at current position.
 fn generate_fixed_text_match(text: &LitStr) -> proc_macro2::TokenStream {
     quote! {
-        // Match required fixed text
         if let Some(pos) = remaining.find(#text) {
-            // Ensure we match immediately at position 0 (no skipping)
             if pos == 0 {
                 remaining = &remaining[#text.len()..];
             } else {
@@ -209,7 +201,6 @@ fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     let var_name = format!("variable '{}'", name);
 
     quote! {
-        // Parse final named placeholder (consumes all remaining input)
         match remaining.parse() {
             Ok(parsed) => {
                 #ident = parsed;
@@ -221,7 +212,7 @@ fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
                 )));
             }
         }
-        remaining = ""; // consumed
+        remaining = "";
     }
 }
 
@@ -231,7 +222,6 @@ fn generate_final_anonymous_placeholder(
     placeholder_num: usize,
 ) -> proc_macro2::TokenStream {
     quote! {
-        // Parse final anonymous placeholder (consumes all remaining input)
         match remaining.parse() {
             Ok(parsed) => {
                 *#arg_expr = parsed;
@@ -248,13 +238,9 @@ fn generate_final_anonymous_placeholder(
                 )));
             }
         }
-        remaining = ""; // consumed
+        remaining = "";
     }
 }
-
-// ============================================================================
-// Error Generation Helpers
-// ============================================================================
 
 /// Create error for missing anonymous placeholder argument.
 fn make_missing_argument_error(
