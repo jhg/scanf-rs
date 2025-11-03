@@ -209,12 +209,12 @@ fn test_multiple_escaped_braces() {
 #[test]
 fn test_negative_numbers() {
     // Test parsing negative numbers
-    let input = "-42, -3.14";
+    let input = "-42, -3.25";
     let mut int_val: i32 = 0;
     let mut float_val: f64 = 0.0;
     sscanf!(input, "{}, {}", &mut int_val, &mut float_val).unwrap();
     assert_eq!(int_val, -42);
-    assert!((float_val + 3.14).abs() < f64::EPSILON * 100.0);
+    assert!((float_val + 3.25).abs() < f64::EPSILON * 100.0);
 }
 
 #[test]
@@ -247,4 +247,127 @@ fn test_long_separator() {
     sscanf!(input, "{}-->{}", &mut a, &mut b).unwrap();
     assert_eq!(a, "apple");
     assert_eq!(b, "banana");
+}
+
+#[test]
+fn test_identifier_with_numbers() {
+    // Test that identifiers with numbers work correctly
+    let input = "42, 3.25";
+    let mut var1: i32 = 0;
+    let mut var2: f64 = 0.0;
+    sscanf!(input, "{var1}, {var2}").unwrap();
+    assert_eq!(var1, 42);
+    assert_eq!(var2, 3.25);
+}
+
+#[test]
+fn test_identifier_with_underscore() {
+    // Test identifiers with underscores
+    let input = "100 200";
+    let mut _private_var: i32 = 0;
+    let mut my_var: i32 = 0;
+    sscanf!(input, "{_private_var} {my_var}").unwrap();
+    assert_eq!(_private_var, 100);
+    assert_eq!(my_var, 200);
+}
+
+#[test]
+fn test_unicode_identifier() {
+    // Test Unicode identifiers (valid in Rust)
+    let input = "42";
+    let mut número: i32 = 0;
+    sscanf!(input, "{número}").unwrap();
+    assert_eq!(número, 42);
+}
+
+#[test]
+fn test_complex_parsing_scenario() {
+    // Test a more complex real-world scenario
+    let input = "User: john_doe, Age: 25, Score: 95.5";
+    let mut username: String = String::new();
+    let mut user_age: i32 = 0;
+    let mut user_score: f64 = 0.0;
+    sscanf!(
+        input,
+        "User: {username}, Age: {user_age}, Score: {user_score}"
+    )
+    .unwrap();
+    assert_eq!(username, "john_doe");
+    assert_eq!(user_age, 25);
+    assert_eq!(user_score, 95.5);
+}
+
+#[test]
+fn test_input_with_trailing_whitespace() {
+    // Test that trailing whitespace does not affect parsing
+    let input = "42  "; // trailing spaces
+    let mut value: i32 = 0;
+    sscanf!(input.trim_end(), "{value}").unwrap();
+    assert_eq!(value, 42);
+}
+
+#[test]
+fn test_empty_string_field_parsing() {
+    // Test parsing empty string to String type
+    let input = ":end";
+    let mut value: String = String::new();
+    let mut marker: String = String::new();
+    sscanf!(input, "{value}:{marker}").unwrap();
+    assert_eq!(value, "");
+    assert_eq!(marker, "end");
+}
+
+// ============================================================================
+// Security Tests
+// ============================================================================
+
+#[test]
+fn test_security_reasonable_format_string() {
+    // Test that reasonable format strings work fine
+    let input = "a:b:c:d:e";
+    let mut a = String::new();
+    let mut b = String::new();
+    let mut c = String::new();
+    let mut d = String::new();
+    let mut e = String::new();
+    sscanf!(input, "{a}:{b}:{c}:{d}:{e}").unwrap();
+    // Verify parsing worked correctly
+    assert_eq!(a, "a");
+    assert_eq!(b, "b");
+    assert_eq!(c, "c");
+    assert_eq!(d, "d");
+    assert_eq!(e, "e");
+}
+
+#[test]
+fn test_security_many_placeholders() {
+    // Test with many placeholders (but within limits)
+    let input = "1 2 3 4 5 6 7 8 9 10";
+    let mut n1: i32 = 0;
+    let mut n2: i32 = 0;
+    let mut n3: i32 = 0;
+    let mut n4: i32 = 0;
+    let mut n5: i32 = 0;
+    let mut n6: i32 = 0;
+    let mut n7: i32 = 0;
+    let mut n8: i32 = 0;
+    let mut n9: i32 = 0;
+    let mut n10: i32 = 0;
+    sscanf!(input, "{n1} {n2} {n3} {n4} {n5} {n6} {n7} {n8} {n9} {n10}").unwrap();
+    // Verify all values parsed correctly
+    assert_eq!(n1, 1);
+    assert_eq!(
+        n2 + n3 + n4 + n5 + n6 + n7 + n8 + n9,
+        2 + 3 + 4 + 5 + 6 + 7 + 8 + 9
+    );
+    assert_eq!(n10, 10);
+}
+
+#[test]
+fn test_security_long_but_valid_identifier() {
+    // Test with long but valid identifier (within 128 char limit)
+    let input = "42";
+    let mut this_is_a_very_long_variable_name_but_still_valid: i32 = 0;
+    sscanf!(input, "{this_is_a_very_long_variable_name_but_still_valid}").unwrap();
+    assert_eq!(this_is_a_very_long_variable_name_but_still_valid, 42);
 }

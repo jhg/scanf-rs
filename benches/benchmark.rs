@@ -1,5 +1,4 @@
 #![allow(unused_must_use)]
-#![allow(clippy::needless_return)]
 
 use std::{any::Any, error::Error, hint::black_box, str::FromStr};
 
@@ -59,9 +58,9 @@ where
         &mut number9
     )
     .unwrap();
-    return (
+    (
         number0, number1, number2, number3, number4, number5, number6, number7, number8, number9,
-    );
+    )
 }
 
 fn sscanf_benchmark(c: &mut Criterion) {
