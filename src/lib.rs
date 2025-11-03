@@ -97,10 +97,17 @@ impl Parse for SscanfArgs {
 /// Represents a placeholder in a format string.
 ///
 /// Placeholders can be either named (e.g., `{variable}`) or anonymous (e.g., `{}`).
+///
+/// # Memory Layout
+///
+/// Uses `Box<str>` instead of `String` for Named variant to minimize memory overhead.
+/// `Box<str>` is more memory-efficient for immutable strings (no capacity field).
+/// This is appropriate since placeholder names don't change after parsing.
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Placeholder {
     /// A named placeholder that captures to a specific variable
-    Named(String),
+    /// Uses Box<str> for memory efficiency (no capacity overhead)
+    Named(Box<str>),
     /// An anonymous placeholder that requires an explicit argument
     Anonymous,
 }
@@ -187,6 +194,24 @@ fn tokenize_format_string(
     format_str: &str,
     format_lit: &LitStr,
 ) -> Result<Vec<FormatToken>, TokenStream> {
+    // Security: Protect against DoS via extremely long format strings
+    const MAX_FORMAT_STRING_LEN: usize = 10_000;
+    if format_str.len() > MAX_FORMAT_STRING_LEN {
+        return Err(syn::Error::new(
+            format_lit.span(),
+            format!(
+                "Format string too long ({} bytes). Maximum allowed: {} bytes. \
+                 This limit prevents compile-time DoS attacks.",
+                format_str.len(),
+                MAX_FORMAT_STRING_LEN
+            ),
+        )
+        .to_compile_error()
+        .into());
+    }
+
+    // Security: Limit number of tokens to prevent excessive code generation
+    const MAX_TOKENS: usize = 256;
     let mut tokens: Vec<FormatToken> = Vec::with_capacity(4); // Pre-allocate for typical case
     let mut chars = format_str.chars().peekable();
     let mut current_text = String::with_capacity(16); // Pre-allocate for typical separator
@@ -200,22 +225,54 @@ fn tokenize_format_string(
                     current_text.push('{');
                     continue;
                 }
-                // Flush accumulated text
+                // Flush accumulated text before processing placeholder
                 if !current_text.is_empty() {
                     tokens.push(FormatToken::Text(std::mem::take(&mut current_text)));
+                    // Security check: prevent excessive token creation
+                    if tokens.len() > MAX_TOKENS {
+                        return Err(syn::Error::new(
+                            format_lit.span(),
+                            format!(
+                                "Too many tokens in format string ({}). Maximum allowed: {}. \
+                                 This limit prevents compile-time resource exhaustion.",
+                                tokens.len(),
+                                MAX_TOKENS
+                            ),
+                        )
+                        .to_compile_error()
+                        .into());
+                    }
+                    // Reset capacity hint for next text segment
+                    current_text = String::with_capacity(16);
                 }
-                // Capture placeholder content
-                let mut content = String::new();
+                // Capture placeholder content (typical identifier: 1-10 chars)
+                // Security: limit identifier length to prevent DoS
+                const MAX_IDENTIFIER_LEN: usize = 128;
+                let mut content = String::with_capacity(8);
                 for c2 in chars.by_ref() {
                     if c2 == '}' {
                         break;
+                    }
+                    // Security check: prevent extremely long identifiers
+                    if content.len() >= MAX_IDENTIFIER_LEN {
+                        return Err(syn::Error::new(
+                            format_lit.span(),
+                            format!(
+                                "Identifier in placeholder too long (>{} characters). \
+                                 This limit prevents compile-time DoS attacks.",
+                                MAX_IDENTIFIER_LEN
+                            ),
+                        )
+                        .to_compile_error()
+                        .into());
                     }
                     content.push(c2);
                 }
                 if content.is_empty() {
                     tokens.push(FormatToken::Placeholder(Placeholder::Anonymous));
                 } else if is_valid_identifier(&content) {
-                    tokens.push(FormatToken::Placeholder(Placeholder::Named(content)));
+                    // Convert String to Box<str> for memory efficiency
+                    tokens.push(FormatToken::Placeholder(Placeholder::Named(content.into_boxed_str())));
                 } else {
                     // Invalid identifier - return error with helpful message
                     return Err(syn::Error::new(
