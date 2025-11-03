@@ -9,7 +9,7 @@ const RUST_KEYWORDS: &[&str] = &[
     "override", "priv", "typeof", "unsized", "virtual", "yield", "try",
 ];
 
-/// Check if string is valid Rust identifier (non-empty, not keyword, alphabetic/_ start, alphanumeric/_ chars).
+/// Check if string is valid Rust identifier.
 #[inline]
 pub fn is_valid_identifier(s: &str) -> bool {
     if s.is_empty() || RUST_KEYWORDS.contains(&s) {

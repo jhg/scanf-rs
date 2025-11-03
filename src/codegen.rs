@@ -87,7 +87,7 @@ pub fn generate_parsing_code(
     Ok((generated, anon_index))
 }
 
-/// Generates code for a named placeholder followed by a separator.
+/// Generate code for named placeholder with separator.
 fn generate_named_placeholder_with_separator(
     name: &str,
     separator: &LitStr,
@@ -123,7 +123,7 @@ fn generate_named_placeholder_with_separator(
     }
 }
 
-/// Generates code for an anonymous placeholder followed by a separator.
+/// Generate code for anonymous placeholder with separator.
 fn generate_anonymous_placeholder_with_separator(
     arg_expr: &Expr,
     placeholder_num: usize,
@@ -163,7 +163,7 @@ fn generate_anonymous_placeholder_with_separator(
     }
 }
 
-/// Generates code for matching fixed text at current position.
+/// Generate code for fixed text matching at current position.
 fn generate_fixed_text_match(text: &LitStr) -> proc_macro2::TokenStream {
     quote! {
         if let Some(pos) = remaining.find(#text) {
@@ -194,7 +194,7 @@ fn generate_fixed_text_match(text: &LitStr) -> proc_macro2::TokenStream {
     }
 }
 
-/// Generates code for a final named placeholder (consumes rest of input).
+/// Generate code for final named placeholder (consumes rest of input).
 fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
 
@@ -214,7 +214,7 @@ fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     }
 }
 
-/// Generates code for a final anonymous placeholder (consumes rest of input).
+/// Generate code for final anonymous placeholder (consumes rest of input).
 fn generate_final_anonymous_placeholder(
     arg_expr: &Expr,
     placeholder_num: usize,
