@@ -15,7 +15,7 @@ use syn::{
 };
 
 /// Arguments for the `sscanf!` macro.
-/// 
+///
 /// Consists of:
 /// - `input`: The string expression to parse
 /// - `format`: The format string literal containing placeholders
@@ -50,7 +50,7 @@ impl Parse for SscanfArgs {
 }
 
 /// Represents a placeholder in a format string.
-/// 
+///
 /// Placeholders can be either named (e.g., `{variable}`) or anonymous (e.g., `{}`).
 #[derive(Debug, PartialEq, Clone)]
 enum Placeholder {
@@ -60,10 +60,8 @@ enum Placeholder {
     Anonymous,
 }
 
-
-
 /// Checks if a string is a valid Rust identifier.
-/// 
+///
 /// A valid identifier must:
 /// - Start with an alphabetic character or underscore
 /// - Contain only alphanumeric characters or underscores
@@ -83,7 +81,7 @@ fn is_valid_identifier(s: &str) -> bool {
 }
 
 /// Token type for compile-time tokenization of format strings.
-/// 
+///
 /// This represents either literal text or a placeholder in the format string.
 #[derive(Debug, Clone)]
 enum CTToken {
@@ -92,12 +90,12 @@ enum CTToken {
 }
 
 /// Tokenizes a format string into text segments and placeholders at compile-time.
-/// 
+///
 /// This function parses the format string, handling escaped braces (`{{` and `}}`),
 /// and returns a sequence of tokens that can be processed to generate parsing code.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns a compile error if the format string contains unescaped `}` characters.
 fn tokenize_format_string(
     format_str: &str,
@@ -144,9 +142,12 @@ fn tokenize_format_string(
                     current_text.push('}');
                 } else {
                     // Unescaped single '}' is invalid
-                    return Err(syn::Error::new(format_lit.span(), "Unescaped '}' in format string")
-                        .to_compile_error()
-                        .into());
+                    return Err(syn::Error::new(
+                        format_lit.span(),
+                        "Unescaped '}' in format string",
+                    )
+                    .to_compile_error()
+                    .into());
                 }
             }
             other => current_text.push(other),
@@ -160,12 +161,12 @@ fn tokenize_format_string(
 }
 
 /// Generates parsing code from tokenized format string.
-/// 
+///
 /// This function takes the tokenized format string and generates the corresponding
 /// Rust code that will parse input according to the format specification.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns a compile error if:
 /// - Consecutive placeholders without separator are found
 /// - Anonymous placeholders don't have corresponding arguments
@@ -349,10 +350,11 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
     };
 
     // Generate the parsing code
-    let (generated, anon_index) = match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
-        Ok(result) => result,
-        Err(err) => return err,
-    };
+    let (generated, anon_index) =
+        match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
+            Ok(result) => result,
+            Err(err) => return err,
+        };
 
     // Check if there are unused arguments
     if anon_index < explicit_args.len() {
@@ -377,7 +379,7 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 // ===== scanf! procedural macro (reads from stdin) =====
 
 /// Arguments for the `scanf!` macro.
-/// 
+///
 /// Consists of:
 /// - `format`: The format string literal containing placeholders
 /// - `args`: Optional explicit arguments for anonymous placeholders
@@ -415,10 +417,11 @@ pub fn scanf(input: TokenStream) -> TokenStream {
     };
 
     // Generate the parsing code
-    let (generated, anon_index) = match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
-        Ok(result) => result,
-        Err(err) => return err,
-    };
+    let (generated, anon_index) =
+        match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
+            Ok(result) => result,
+            Err(err) => return err,
+        };
 
     // Check if there are unused arguments
     if anon_index < explicit_args.len() {

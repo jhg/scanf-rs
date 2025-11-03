@@ -202,7 +202,7 @@ fn test_multiple_escaped_braces() {
     // Test multiple escaped braces
     let input = "{{test}}";
     let mut value: String = String::new();
-    sscanf!(input, "{{{{{value}}}}}", ).unwrap();
+    sscanf!(input, "{{{{{value}}}}}",).unwrap();
     assert_eq!(value, "test");
 }
 
