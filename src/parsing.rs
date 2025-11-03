@@ -1,6 +1,4 @@
-//! Argument parsing for scanf macros.
-//!
-//! This module defines the structures used to parse macro arguments at compile-time.
+//! Macro argument parsing structures.
 
 use syn::{
     Expr, LitStr, Token,
@@ -9,17 +7,7 @@ use syn::{
     token::Comma,
 };
 
-// ============================================================================
-// sscanf! Macro Arguments
-// ============================================================================
-
-/// Arguments for the `sscanf!` macro.
-///
-/// # Fields
-///
-/// - `input`: The string expression to parse
-/// - `format`: The format string literal containing placeholders
-/// - `args`: Optional explicit arguments for anonymous placeholders
+/// sscanf! arguments: input, format, args
 pub struct SscanfArgs {
     pub input: Expr,
     pub format: LitStr,
@@ -49,16 +37,7 @@ impl Parse for SscanfArgs {
     }
 }
 
-// ============================================================================
-// scanf! Macro Arguments
-// ============================================================================
-
-/// Arguments for the `scanf!` macro.
-///
-/// # Fields
-///
-/// - `format`: The format string literal containing placeholders
-/// - `args`: Optional explicit arguments for anonymous placeholders
+/// scanf! arguments: format, args
 pub struct ScanfArgs {
     pub format: LitStr,
     pub args: Punctuated<Expr, Comma>,

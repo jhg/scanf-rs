@@ -1,43 +1,17 @@
-//! Security limits and capacity constants for the scanf macros.
-//!
-//! This module centralizes all compile-time and runtime limits to prevent
-//! denial-of-service attacks and optimize memory allocation.
+//! Security limits and memory pre-allocation hints.
 
-// ============================================================================
-// Security Limits (Compile-Time DoS Protection)
-// ============================================================================
-
-/// Maximum length of a format string in bytes.
-///
-/// This limit prevents compile-time DoS attacks via extremely long format strings
-/// while allowing all legitimate use cases.
+// Security limits (DoS protection)
+/// Max format string length (bytes).
 pub const MAX_FORMAT_STRING_LEN: usize = 10_000;
-
-/// Maximum number of tokens in a format string.
-///
-/// This limit prevents excessive code generation and compile-time resource exhaustion.
+/// Max tokens in format string.
 pub const MAX_TOKENS: usize = 256;
-
-/// Maximum length of an identifier in a placeholder.
-///
-/// This limit prevents DoS attacks via extremely long identifier names.
+/// Max identifier length (chars).
 pub const MAX_IDENTIFIER_LEN: usize = 128;
 
-// ============================================================================
-// Memory Pre-Allocation Hints
-// ============================================================================
-
-/// Initial capacity hint for the token vector.
-///
-/// Most format strings have 2-4 tokens, so this avoids initial reallocations.
+// Memory pre-allocation hints
+/// Initial token vector capacity.
 pub const TOKENS_INITIAL_CAPACITY: usize = 4;
-
-/// Initial capacity hint for text segments between placeholders.
-///
-/// Typical separators are short (": ", " - ", etc.), so 16 bytes is sufficient.
+/// Initial text segment capacity.
 pub const TEXT_SEGMENT_CAPACITY: usize = 16;
-
-/// Initial capacity hint for placeholder identifier names.
-///
-/// Most identifiers are short (3-10 characters), so 8 bytes avoids reallocations.
+/// Initial identifier capacity.
 pub const IDENTIFIER_CAPACITY: usize = 8;

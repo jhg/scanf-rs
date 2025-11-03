@@ -1,7 +1,4 @@
-//! Format string tokenization for scanf macros.
-//!
-//! This module handles the compile-time parsing of format strings into
-//! sequences of text literals and placeholders.
+//! Format string tokenization at compile-time.
 
 use crate::constants::*;
 use crate::types::{FormatToken, Placeholder};
@@ -9,35 +6,9 @@ use crate::validation::is_valid_identifier;
 use proc_macro::TokenStream;
 use syn::LitStr;
 
-/// Tokenizes a format string into text segments and placeholders at compile-time.
+/// Tokenize format string into text/placeholders. Handles `{{`/`}}` escapes.
 ///
-/// This function parses the format string, handling escaped braces (`{{` and `}}`),
-/// and returns a sequence of tokens that can be processed to generate parsing code.
-///
-/// # Security
-///
-/// Multiple security limits are enforced:
-/// - Format string length: [`MAX_FORMAT_STRING_LEN`]
-/// - Number of tokens: [`MAX_TOKENS`]
-/// - Identifier length: [`MAX_IDENTIFIER_LEN`]
-///
-/// # Arguments
-///
-/// - `format_str`: The format string content to tokenize
-/// - `format_lit`: The original literal for error reporting
-///
-/// # Returns
-///
-/// Returns `Ok(Vec<FormatToken>)` on success, or a compile error on failure.
-///
-/// # Errors
-///
-/// Returns a compile error if:
-/// - Format string exceeds maximum length
-/// - Too many tokens are generated
-/// - An identifier exceeds maximum length
-/// - An invalid identifier is used
-/// - An unescaped `}` is found
+/// Security: enforces MAX_FORMAT_STRING_LEN, MAX_TOKENS, MAX_IDENTIFIER_LEN limits.
 pub fn tokenize_format_string(
     format_str: &str,
     format_lit: &LitStr,

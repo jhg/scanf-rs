@@ -1,11 +1,6 @@
-//! Identifier validation for scanf placeholders.
-//!
-//! This module handles validation of placeholder identifiers to ensure they
-//! are valid Rust identifiers and not reserved keywords.
+//! Identifier validation for placeholders.
 
-/// All Rust keywords that cannot be used as placeholder identifiers.
-///
-/// This list includes current keywords and reserved keywords for future use.
+/// Rust keywords (current + reserved for future).
 const RUST_KEYWORDS: &[&str] = &[
     "as", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn", "for",
     "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return",
@@ -14,24 +9,7 @@ const RUST_KEYWORDS: &[&str] = &[
     "override", "priv", "typeof", "unsized", "virtual", "yield", "try",
 ];
 
-/// Checks if a string is a valid Rust identifier.
-///
-/// A valid identifier must:
-/// - Not be empty
-/// - Not be a Rust keyword
-/// - Start with an alphabetic character (including Unicode) or underscore
-/// - Contain only alphanumeric characters (including Unicode) or underscores
-///
-/// # Note
-///
-/// This doesn't check for raw identifiers (r#name) as they're not needed
-/// in placeholder context.
-///
-/// # Performance
-///
-/// This function is called at compile-time during macro expansion, so it's optimized
-/// for correctness over runtime performance. The keyword check uses a simple slice
-/// search which is acceptable for compile-time use.
+/// Check if string is valid Rust identifier (non-empty, not keyword, alphabetic/_ start, alphanumeric/_ chars).
 #[inline]
 pub fn is_valid_identifier(s: &str) -> bool {
     if s.is_empty() {

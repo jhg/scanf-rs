@@ -1,7 +1,4 @@
 //! Code generation for scanf macros.
-//!
-//! This module generates the Rust code that performs runtime parsing
-//! based on the tokenized format string.
 
 use crate::tokenization::tokenize_format_string;
 use crate::types::{FormatToken, Placeholder};
@@ -10,49 +7,9 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::{Expr, Ident, LitStr, spanned::Spanned};
 
-/// Generates parsing code from the tokenized format string.
+/// Generate parsing code from tokens.
 ///
-/// This function takes the tokenized format string and generates the corresponding
-/// Rust code that will perform parsing of the input according to the specification.
-///
-/// # Algorithm
-///
-/// For each token:
-/// - **Literal text**: Searches for and consumes that exact text from input
-/// - **Placeholder + Text**: Searches for the text and parses everything before it
-/// - **Final placeholder**: Parses all remaining input
-///
-/// # Error Handling
-///
-/// Errors accumulate in a `result` variable that combines multiple errors
-/// using the `.and(Err(...))` pattern. This allows parsing to continue
-/// to provide better error feedback.
-///
-/// # Design Note
-///
-/// Code for Named and Anonymous placeholders is similar but NOT extracted
-/// into a helper function because:
-/// - Error messages are different and specific to each case
-/// - Clarity is more important than extreme DRY
-/// - Inline code is easier to understand and maintain (human-first)
-///
-/// # Arguments
-///
-/// - `tokens`: The tokenized format string
-/// - `explicit_args`: Arguments provided for anonymous placeholders
-/// - `format_lit`: The original format string literal for error reporting
-///
-/// # Returns
-///
-/// Returns `Ok((generated_code, anonymous_count))` on success:
-/// - `generated_code`: Vec of token streams for generated parsing code
-/// - `anonymous_count`: Number of anonymous placeholders processed
-///
-/// # Errors
-///
-/// Returns a compile error if:
-/// - Consecutive placeholders without separator are found (ambiguous parsing)
-/// - Anonymous placeholders don't have corresponding arguments
+/// Returns `(code, anon_count)` or error for consecutive placeholders / missing args.
 pub fn generate_parsing_code(
     tokens: &[FormatToken],
     explicit_args: &[&Expr],
@@ -304,13 +261,7 @@ fn generate_final_anonymous_placeholder(
 // Error Generation Helpers
 // ============================================================================
 
-/// Creates an error for missing anonymous placeholder argument.
-///
-/// # Arguments
-///
-/// - `position`: The position of the placeholder (1-indexed)
-/// - `is_final`: Whether this is the final placeholder in the format string
-/// - `format_lit`: The format string literal for error span
+/// Create error for missing anonymous placeholder argument.
 fn make_missing_argument_error(
     position: usize,
     is_final: bool,
@@ -329,27 +280,9 @@ fn make_missing_argument_error(
     .into()
 }
 
-/// Generates complete scanf implementation from format string and arguments.
+/// Generate complete scanf implementation: tokenize, validate, codegen.
 ///
-/// This is the top-level code generation function that orchestrates tokenization,
-/// validation, and code generation.
-///
-/// # Arguments
-///
-/// - `format_lit`: The format string literal
-/// - `explicit_args`: Arguments provided for anonymous placeholders
-///
-/// # Returns
-///
-/// Returns the generated parsing code on success, or a compile error on failure.
-///
-/// # Errors
-///
-/// Returns a compile error if:
-/// - Format string is empty
-/// - Format string contains no parseable content
-/// - There are unused arguments
-/// - Any validation or tokenization errors occur
+/// Errors on empty format, no content, unused args, or validation failures.
 pub fn generate_scanf_implementation(
     format_lit: &LitStr,
     explicit_args: &[&Expr],
