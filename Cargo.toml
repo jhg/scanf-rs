@@ -26,7 +26,7 @@ bench = false
 [dependencies]
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2.0", features = ["full"] }
+syn = { version = "2.0", features = ["derive", "parsing", "proc-macro"] }
 
 [dev-dependencies]
 criterion = "0.7"
@@ -44,4 +44,4 @@ strip = true
 debug-assertions = false
 codegen-units = 1
 incremental = false
-overflow-checks = false
+overflow-checks = true
