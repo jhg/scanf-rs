@@ -6,13 +6,13 @@
 //! # Architecture
 //!
 //! Compile-time: `tokenization` → `codegen` → expansion
-//! Runtime: Generated code parses input with `.find()` and `.parse()`
+//! Runtime: Generated code uses `.find()` and `.parse()`
 //!
 //! Modules: `constants`, `types`, `validation`, `parsing`, `tokenization`, `codegen`
 //!
 //! # Hygiene
 //!
-//! Generated code uses isolated scopes `{ }` (block expressions) - no prefix pollution.
+//! Generated code uses isolated scopes - no variable pollution.
 //!
 //! # Limitations
 //!
@@ -23,7 +23,7 @@
 //!
 //! # Security
 //!
-//! **DoS limits:** 10K bytes format, 256 tokens, 128 char identifiers
+//! **`DoS` limits:** 10K bytes format, 256 tokens, 128 char identifiers
 //! **Memory:** `#![forbid(unsafe_code)]`, `Box<str>`, bounds-checked
 //! **Validation:** Rejects empty formats, keywords, invalid identifiers
 
@@ -88,10 +88,12 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 
     // Scope isolation ensures macro hygiene
     let expanded = quote! {{
-        let mut result: std::io::Result<()> = Ok(());
-        let mut remaining = #input_expr;
-        #(#generated)*
-        result
+        {
+            let mut result: std::io::Result<()> = Ok(());
+            let mut remaining = #input_expr;
+            #(#generated)*
+            result
+        }
     }};
 
     TokenStream::from(expanded)
@@ -132,17 +134,19 @@ pub fn scanf(input: TokenStream) -> TokenStream {
 
     // Scope isolation ensures macro hygiene
     let expanded = quote! {{
-        let mut result: std::io::Result<()> = Ok(());
-        let mut buffer = String::new();
-        let _ = std::io::Write::flush(&mut std::io::stdout());
-        match std::io::stdin().read_line(&mut buffer) {
-            Ok(_) => {
-                let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
-                let mut remaining: &str = input;
-                #(#generated)*
-                result
+        {
+            let mut result: std::io::Result<()> = Ok(());
+            let mut buffer = String::new();
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            match std::io::stdin().read_line(&mut buffer) {
+                Ok(_) => {
+                    let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
+                    let mut remaining: &str = input;
+                    #(#generated)*
+                    result
+                }
+                Err(e) => Err(e)
             }
-            Err(e) => Err(e)
         }
     }};
     TokenStream::from(expanded)

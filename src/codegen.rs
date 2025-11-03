@@ -9,7 +9,7 @@ use syn::{Expr, Ident, LitStr, spanned::Spanned};
 
 /// Generate parsing code from tokens.
 ///
-/// Returns `(code, anon_count)` or error for consecutive placeholders / missing args.
+/// Returns `(code, anon_count)` or error for consecutive placeholders/missing args.
 fn generate_parsing_code(
     tokens: &[FormatToken],
     explicit_args: &[&Expr],
@@ -87,24 +87,23 @@ fn generate_parsing_code(
     Ok((generated, anon_index))
 }
 
-/// Generate code for named placeholder with separator.
-fn generate_named_placeholder_with_separator(
-    name: &str,
+/// Generate code for placeholder with separator (named or anonymous).
+fn generate_placeholder_with_separator(
+    assignment: &proc_macro2::TokenStream,
+    var_desc: &str,
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
-    let ident = Ident::new(name, Span::call_site());
-
     quote! {
         if let Some(pos) = remaining.find(#separator) {
             let slice = &remaining[..pos];
             match slice.parse() {
                 Ok(parsed) => {
-                    #ident = parsed;
+                    #assignment
                 }
                 Err(error) => {
                     result = result.and(Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
-                        format!("Failed to parse variable '{}' from {:?}: {}", #name, slice, error)
+                        format!("Failed to parse {} from {:?}: {}", #var_desc, slice, error)
                     )));
                 }
             }
@@ -113,14 +112,25 @@ fn generate_named_placeholder_with_separator(
             result = result.and(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "Expected separator {:?} for variable '{}' not found in remaining input: {:?}",
+                    "Expected separator {:?} for {} not found in remaining input: {:?}",
                     #separator,
-                    #name,
+                    #var_desc,
                     remaining
                 )
             )));
         }
     }
+}
+
+/// Generate code for named placeholder with separator.
+fn generate_named_placeholder_with_separator(
+    name: &str,
+    separator: &LitStr,
+) -> proc_macro2::TokenStream {
+    let ident = Ident::new(name, Span::call_site());
+    let assignment = quote! { #ident = parsed; };
+    let var_desc = format!("variable '{name}'");
+    generate_placeholder_with_separator(&assignment, &var_desc, separator)
 }
 
 /// Generate code for anonymous placeholder with separator.
@@ -129,38 +139,9 @@ fn generate_anonymous_placeholder_with_separator(
     placeholder_num: usize,
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
-    quote! {
-        if let Some(pos) = remaining.find(#separator) {
-            let slice = &remaining[..pos];
-            match slice.parse() {
-                Ok(parsed) => {
-                    *#arg_expr = parsed;
-                }
-                Err(error) => {
-                    result = result.and(Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!(
-                            "Failed to parse anonymous placeholder #{} from {:?}: {}",
-                            #placeholder_num,
-                            slice,
-                            error
-                        )
-                    )));
-                }
-            }
-            remaining = &remaining[pos + #separator.len()..];
-        } else {
-            result = result.and(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "Expected separator {:?} for anonymous placeholder #{} not found in remaining input: {:?}",
-                    #separator,
-                    #placeholder_num,
-                    remaining
-                )
-            )));
-        }
-    }
+    let assignment = quote! { *#arg_expr = parsed; };
+    let var_desc = format!("anonymous placeholder #{placeholder_num}");
+    generate_placeholder_with_separator(&assignment, &var_desc, separator)
 }
 
 /// Generate code for fixed text matching at current position.
@@ -194,19 +175,20 @@ fn generate_fixed_text_match(text: &LitStr) -> proc_macro2::TokenStream {
     }
 }
 
-/// Generate code for final named placeholder (consumes rest of input).
-fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
-    let ident = Ident::new(name, Span::call_site());
-
+/// Generate code for final placeholder (consumes rest of input).
+fn generate_final_placeholder(
+    assignment: &proc_macro2::TokenStream,
+    var_desc: &str,
+) -> proc_macro2::TokenStream {
     quote! {
         match remaining.parse() {
             Ok(parsed) => {
-                #ident = parsed;
+                #assignment
             }
             Err(error) => {
                 result = result.and(Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    format!("Failed to parse variable '{}' from remaining input {:?}: {}", #name, remaining, error)
+                    format!("Failed to parse {} from remaining input {:?}: {}", #var_desc, remaining, error)
                 )));
             }
         }
@@ -214,30 +196,22 @@ fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     }
 }
 
+/// Generate code for final named placeholder (consumes rest of input).
+fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
+    let ident = Ident::new(name, Span::call_site());
+    let assignment = quote! { #ident = parsed; };
+    let var_desc = format!("variable '{name}'");
+    generate_final_placeholder(&assignment, &var_desc)
+}
+
 /// Generate code for final anonymous placeholder (consumes rest of input).
 fn generate_final_anonymous_placeholder(
     arg_expr: &Expr,
     placeholder_num: usize,
 ) -> proc_macro2::TokenStream {
-    quote! {
-        match remaining.parse() {
-            Ok(parsed) => {
-                *#arg_expr = parsed;
-            }
-            Err(error) => {
-                result = result.and(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    format!(
-                        "Failed to parse anonymous placeholder #{} from remaining input {:?}: {}",
-                        #placeholder_num,
-                        remaining,
-                        error
-                    )
-                )));
-            }
-        }
-        remaining = "";
-    }
+    let assignment = quote! { *#arg_expr = parsed; };
+    let var_desc = format!("anonymous placeholder #{placeholder_num}");
+    generate_final_placeholder(&assignment, &var_desc)
 }
 
 /// Create error for missing anonymous placeholder argument.
@@ -250,9 +224,8 @@ fn make_missing_argument_error(
     syn::Error::new(
         format_lit.span(),
         format!(
-            "{}anonymous placeholder '{{}}' at position {} has no corresponding argument. \
-             Provide a mutable reference argument (e.g., &mut var) or use a named placeholder (e.g., '{{var}}')",
-            prefix, position
+            "{prefix}anonymous placeholder '{{}}' at position {position} has no corresponding argument. \
+             Provide a mutable reference argument (e.g., &mut var) or use a named placeholder (e.g., '{{var}}')"
         ),
     )
     .to_compile_error()
@@ -295,9 +268,8 @@ pub fn generate_scanf_implementation(
         return Err(syn::Error::new(
             explicit_args[anon_index].span(),
             format!(
-                "Too many arguments: {} unused argument(s) provided. \
-                 The format string only has {} anonymous placeholder(s)",
-                unused_count, anon_index
+                "Too many arguments: {unused_count} unused argument(s) provided. \
+                 The format string only has {anon_index} anonymous placeholder(s)"
             ),
         )
         .to_compile_error()

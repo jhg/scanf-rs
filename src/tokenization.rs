@@ -11,7 +11,7 @@ use syn::LitStr;
 
 /// Tokenize format string into text/placeholders. Handles `{{`/`}}` escapes.
 ///
-/// Security: enforces MAX_FORMAT_STRING_LEN, MAX_TOKENS, MAX_IDENTIFIER_LEN limits.
+/// Enforces `MAX_FORMAT_STRING_LEN`, `MAX_TOKENS`, `MAX_IDENTIFIER_LEN` limits.
 pub fn tokenize_format_string(
     format_str: &str,
     format_lit: &LitStr,
@@ -80,9 +80,8 @@ pub fn tokenize_format_string(
                         return Err(syn::Error::new(
                             format_lit.span(),
                             format!(
-                                "Identifier in placeholder too long (>{} characters). \
-                                 This limit prevents compile-time DoS attacks.",
-                                MAX_IDENTIFIER_LEN
+                                "Identifier in placeholder too long (>{MAX_IDENTIFIER_LEN} characters). \
+                                 This limit prevents compile-time DoS attacks."
                             ),
                         )
                         .to_compile_error()
@@ -106,11 +105,10 @@ pub fn tokenize_format_string(
                     return Err(syn::Error::new(
                         format_lit.span(),
                         format!(
-                            "Invalid identifier '{}' in placeholder. \
+                            "Invalid identifier '{content}' in placeholder. \
                              Identifiers must start with a letter or underscore, \
                              contain only alphanumeric characters or underscores, \
-                             and not be Rust keywords. Use '{{}}' for anonymous placeholders.",
-                            content
+                             and not be Rust keywords. Use '{{}}' for anonymous placeholders."
                         ),
                     )
                     .to_compile_error()
