@@ -296,3 +296,24 @@ fn test_complex_parsing_scenario() {
     assert_eq!(user_age, 25);
     assert_eq!(user_score, 95.5);
 }
+
+#[test]
+fn test_input_with_trailing_whitespace() {
+    // Test that trailing whitespace does not affect parsing
+    let input = "42  ";  // trailing spaces
+    let mut value: i32 = 0;
+    sscanf!(input.trim_end(), "{value}").unwrap();
+    assert_eq!(value, 42);
+}
+
+#[test]
+fn test_empty_string_field_parsing() {
+    // Test parsing empty string to String type
+    let input = ":end";
+    let mut value: String = String::new();
+    let mut marker: String = String::new();
+    sscanf!(input, "{value}:{marker}").unwrap();
+    assert_eq!(value, "");
+    assert_eq!(marker, "end");
+}
+

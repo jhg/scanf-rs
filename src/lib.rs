@@ -146,10 +146,12 @@ fn is_valid_identifier(s: &str) -> bool {
 ///
 /// # Design note
 ///
-/// CTToken is only used during compile-time macro expansion, not in the generated
+/// `FormatToken` is only used during compile-time macro expansion, not in the generated
 /// runtime code. Therefore, we prioritize code clarity over runtime performance.
+/// The abbreviation "CT" (Compile-Time) was replaced with the more explicit
+/// "FormatToken" for better code maintainability.
 #[derive(Debug, Clone)]
-enum CTToken {
+enum FormatToken {
     /// A literal text segment that must match exactly in the input
     Text(String),
     /// A placeholder that captures a value from the input
@@ -167,8 +169,8 @@ enum CTToken {
 fn tokenize_format_string(
     format_str: &str,
     format_lit: &LitStr,
-) -> Result<Vec<CTToken>, TokenStream> {
-    let mut ct_tokens: Vec<CTToken> = Vec::new();
+) -> Result<Vec<FormatToken>, TokenStream> {
+    let mut tokens: Vec<FormatToken> = Vec::new();
     let mut chars = format_str.chars().peekable();
     let mut current_text = String::new();
 
@@ -183,7 +185,7 @@ fn tokenize_format_string(
                 }
                 // Flush accumulated text
                 if !current_text.is_empty() {
-                    ct_tokens.push(CTToken::Text(std::mem::take(&mut current_text)));
+                    tokens.push(FormatToken::Text(std::mem::take(&mut current_text)));
                 }
                 // Capture placeholder content
                 let mut content = String::new();
@@ -194,9 +196,9 @@ fn tokenize_format_string(
                     content.push(c2);
                 }
                 if content.is_empty() {
-                    ct_tokens.push(CTToken::Placeholder(Placeholder::Anonymous));
+                    tokens.push(FormatToken::Placeholder(Placeholder::Anonymous));
                 } else if is_valid_identifier(&content) {
-                    ct_tokens.push(CTToken::Placeholder(Placeholder::Named(content)));
+                    tokens.push(FormatToken::Placeholder(Placeholder::Named(content)));
                 } else {
                     // Invalid identifier - return error with helpful message
                     return Err(syn::Error::new(
@@ -232,10 +234,10 @@ fn tokenize_format_string(
         }
     }
     if !current_text.is_empty() {
-        ct_tokens.push(CTToken::Text(current_text));
+        tokens.push(FormatToken::Text(current_text));
     }
 
-    Ok(ct_tokens)
+    Ok(tokens)
 }
 
 // ============================================================================
@@ -267,7 +269,7 @@ fn tokenize_format_string(
 /// - Anonymous placeholders don't have corresponding arguments
 /// - Too many arguments are provided
 fn generate_parsing_code(
-    ct_tokens: &[CTToken],
+    tokens: &[FormatToken],
     explicit_args: &[&Expr],
     format_lit: &LitStr,
 ) -> Result<(Vec<proc_macro2::TokenStream>, usize), TokenStream> {
@@ -275,9 +277,9 @@ fn generate_parsing_code(
     let mut pending_placeholder: Option<Placeholder> = None;
     let mut anon_index: usize = 0;
 
-    for token in ct_tokens {
+    for token in tokens {
         match token {
-            CTToken::Placeholder(ph) => {
+            FormatToken::Placeholder(ph) => {
                 if pending_placeholder.is_some() {
                     return Err(syn::Error::new(
                         format_lit.span(),
@@ -289,13 +291,15 @@ fn generate_parsing_code(
                 }
                 pending_placeholder = Some(ph.clone());
             }
-            CTToken::Text(text) => {
+            FormatToken::Text(text) => {
                 let lit_text = LitStr::new(text, Span::call_site());
                 if let Some(ph) = pending_placeholder.take() {
                     match ph {
                         Placeholder::Named(name) => {
                             let ident = Ident::new(&name, Span::call_site());
+                            let var_name = format!("variable '{}'", name);
                             generated.push(quote! {
+                                // Parse named placeholder into variable
                                 if let Some(pos) = remaining.find(#lit_text) {
                                     let slice = &remaining[..pos];
                                     match slice.parse() {
@@ -305,7 +309,7 @@ fn generate_parsing_code(
                                         Err(error) => {
                                             result = result.and(Err(std::io::Error::new(
                                                 std::io::ErrorKind::InvalidInput,
-                                                error
+                                                format!("Failed to parse {} from {:?}: {}", #var_name, slice, error)
                                             )));
                                         }
                                     }
@@ -314,8 +318,9 @@ fn generate_parsing_code(
                                     result = result.and(Err(std::io::Error::new(
                                         std::io::ErrorKind::InvalidInput,
                                         format!(
-                                            "Expected separator {:?} not found in remaining input: {:?}",
+                                            "Expected separator {:?} for {} not found in remaining input: {:?}",
                                             #lit_text,
+                                            #var_name,
                                             remaining
                                         )
                                     )));
@@ -336,8 +341,10 @@ fn generate_parsing_code(
                                 .into());
                             }
                             let arg_expr = explicit_args[anon_index];
+                            let placeholder_num = anon_index + 1;
                             anon_index += 1;
                             generated.push(quote! {
+                                // Parse anonymous placeholder (argument position)
                                 if let Some(pos) = remaining.find(#lit_text) {
                                     let slice = &remaining[..pos];
                                     match slice.parse() {
@@ -347,7 +354,12 @@ fn generate_parsing_code(
                                         Err(error) => {
                                             result = result.and(Err(std::io::Error::new(
                                                 std::io::ErrorKind::InvalidInput,
-                                                error
+                                                format!(
+                                                    "Failed to parse anonymous placeholder #{} from {:?}: {}",
+                                                    #placeholder_num,
+                                                    slice,
+                                                    error
+                                                )
                                             )));
                                         }
                                     }
@@ -356,8 +368,9 @@ fn generate_parsing_code(
                                     result = result.and(Err(std::io::Error::new(
                                         std::io::ErrorKind::InvalidInput,
                                         format!(
-                                            "Expected separator {:?} not found in remaining input: {:?}",
+                                            "Expected separator {:?} for anonymous placeholder #{} not found in remaining input: {:?}",
                                             #lit_text,
+                                            #placeholder_num,
                                             remaining
                                         )
                                     )));
@@ -366,10 +379,11 @@ fn generate_parsing_code(
                         }
                     }
                 } else {
-                    // Just advance over required fixed text
+                    // No placeholder - just fixed text that must match
                     generated.push(quote! {
+                        // Match required fixed text
                         if let Some(pos) = remaining.find(#lit_text) {
-                            // Ensure we match immediately at position 0
+                            // Ensure we match immediately at position 0 (no skipping)
                             if pos == 0 {
                                 remaining = &remaining[#lit_text.len()..];
                             } else {
@@ -400,12 +414,14 @@ fn generate_parsing_code(
         }
     }
 
-    // Final pending placeholder consumes rest
+    // Final pending placeholder consumes rest of input
     if let Some(ph) = pending_placeholder {
         match ph {
             Placeholder::Named(name) => {
                 let ident = Ident::new(&name, Span::call_site());
+                let var_name = format!("variable '{}'", name);
                 generated.push(quote! {
+                    // Parse final named placeholder (consumes all remaining input)
                     match remaining.parse() {
                         Ok(parsed) => {
                             #ident = parsed;
@@ -413,7 +429,7 @@ fn generate_parsing_code(
                         Err(error) => {
                             result = result.and(Err(std::io::Error::new(
                                 std::io::ErrorKind::InvalidInput,
-                                error
+                                format!("Failed to parse {} from remaining input {:?}: {}", #var_name, remaining, error)
                             )));
                         }
                     }
@@ -434,8 +450,10 @@ fn generate_parsing_code(
                     .into());
                 }
                 let arg_expr = explicit_args[anon_index];
+                let placeholder_num = anon_index + 1;
                 anon_index += 1;
                 generated.push(quote! {
+                    // Parse final anonymous placeholder (consumes all remaining input)
                     match remaining.parse() {
                         Ok(parsed) => {
                             *#arg_expr = parsed;
@@ -443,7 +461,12 @@ fn generate_parsing_code(
                         Err(error) => {
                             result = result.and(Err(std::io::Error::new(
                                 std::io::ErrorKind::InvalidInput,
-                                error
+                                format!(
+                                    "Failed to parse anonymous placeholder #{} from remaining input {:?}: {}",
+                                    #placeholder_num,
+                                    remaining,
+                                    error
+                                )
                             )));
                         }
                     }
@@ -466,11 +489,31 @@ fn generate_scanf_implementation(
 ) -> Result<Vec<proc_macro2::TokenStream>, TokenStream> {
     let format_str = format_lit.value();
 
+    // Validate format string is not empty
+    if format_str.is_empty() {
+        return Err(syn::Error::new(
+            format_lit.span(),
+            "Format string cannot be empty. Provide at least one placeholder or literal text.",
+        )
+        .to_compile_error()
+        .into());
+    }
+
     // Tokenize the format string at compile-time
-    let ct_tokens = tokenize_format_string(&format_str, format_lit)?;
+    let tokens = tokenize_format_string(&format_str, format_lit)?;
+
+    // Validate there's at least something to parse
+    if tokens.is_empty() {
+        return Err(syn::Error::new(
+            format_lit.span(),
+            "Format string contains no parseable content",
+        )
+        .to_compile_error()
+        .into());
+    }
 
     // Generate the parsing code
-    let (generated, anon_index) = generate_parsing_code(&ct_tokens, explicit_args, format_lit)?;
+    let (generated, anon_index) = generate_parsing_code(&tokens, explicit_args, format_lit)?;
 
     // Check if there are unused arguments
     if anon_index < explicit_args.len() {
@@ -657,7 +700,9 @@ pub fn scanf(input: TokenStream) -> TokenStream {
         let _ = std::io::Write::flush(&mut std::io::stdout());
         match std::io::stdin().read_line(&mut buffer) {
             Ok(_) => {
-                let mut remaining: &str = buffer.as_str();
+                // Trim trailing newline for consistent parsing
+                let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
+                let mut remaining: &str = input;
                 #(#generated)*
                 result
             }
