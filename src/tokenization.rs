@@ -31,22 +31,23 @@ pub fn tokenize_format_string(
     let mut chars = format_str.chars().peekable();
     let mut current_text = String::with_capacity(TEXT_SEGMENT_CAPACITY);
 
-    let push_token = |tokens: &mut Vec<FormatToken>, token: FormatToken| -> Result<(), TokenStream> {
-        if tokens.len() >= MAX_TOKENS {
-            return Err(syn::Error::new(
-                format_lit.span(),
-                format!(
-                    "Too many tokens in format string. Maximum allowed: {}. \
+    let push_token =
+        |tokens: &mut Vec<FormatToken>, token: FormatToken| -> Result<(), TokenStream> {
+            if tokens.len() >= MAX_TOKENS {
+                return Err(syn::Error::new(
+                    format_lit.span(),
+                    format!(
+                        "Too many tokens in format string. Maximum allowed: {}. \
                      This limit prevents compile-time resource exhaustion.",
-                    MAX_TOKENS
-                ),
-            )
-            .to_compile_error()
-            .into());
-        }
-        tokens.push(token);
-        Ok(())
-    };
+                        MAX_TOKENS
+                    ),
+                )
+                .to_compile_error()
+                .into());
+            }
+            tokens.push(token);
+            Ok(())
+        };
 
     while let Some(ch) = chars.next() {
         match ch {
@@ -58,7 +59,10 @@ pub fn tokenize_format_string(
                 }
 
                 if !current_text.is_empty() {
-                    push_token(&mut tokens, FormatToken::Text(std::mem::take(&mut current_text)))?;
+                    push_token(
+                        &mut tokens,
+                        FormatToken::Text(std::mem::take(&mut current_text)),
+                    )?;
                     current_text = String::with_capacity(TEXT_SEGMENT_CAPACITY);
                 }
 
@@ -85,11 +89,15 @@ pub fn tokenize_format_string(
                 }
 
                 if content.is_empty() {
-                    push_token(&mut tokens, FormatToken::Placeholder(Placeholder::Anonymous))?;
+                    push_token(
+                        &mut tokens,
+                        FormatToken::Placeholder(Placeholder::Anonymous),
+                    )?;
                 } else if is_valid_identifier(&content) {
-                    push_token(&mut tokens, FormatToken::Placeholder(Placeholder::Named(
-                        content.into_boxed_str(),
-                    )))?;
+                    push_token(
+                        &mut tokens,
+                        FormatToken::Placeholder(Placeholder::Named(content.into_boxed_str())),
+                    )?;
                 } else {
                     return Err(syn::Error::new(
                         format_lit.span(),
