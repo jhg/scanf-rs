@@ -20,14 +20,12 @@ impl Parse for SscanfArgs {
         input.parse::<Token![,]>()?;
         let format = input.parse()?;
 
-        let mut args = Punctuated::new();
-        while !input.is_empty() {
+        let args = if input.is_empty() {
+            Punctuated::new()
+        } else {
             input.parse::<Token![,]>()?;
-            if input.is_empty() {
-                break;
-            }
-            args.push(input.parse()?);
-        }
+            Punctuated::parse_terminated(input)?
+        };
 
         Ok(SscanfArgs {
             input: input_expr,
@@ -46,14 +44,14 @@ pub struct ScanfArgs {
 impl Parse for ScanfArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let format: LitStr = input.parse()?;
-        let mut args = Punctuated::new();
-        while !input.is_empty() {
+
+        let args = if input.is_empty() {
+            Punctuated::new()
+        } else {
             input.parse::<Token![,]>()?;
-            if input.is_empty() {
-                break;
-            }
-            args.push(input.parse()?);
-        }
+            Punctuated::parse_terminated(input)?
+        };
+
         Ok(Self { format, args })
     }
 }

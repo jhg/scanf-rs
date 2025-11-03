@@ -10,8 +10,10 @@ pub enum Placeholder {
 }
 
 /// Format string token: literal text or placeholder.
+///
+/// Text uses `Box<str>` (16 bytes) vs `String` (24 bytes) for 33% memory saving.
 #[derive(Debug, Clone)]
 pub enum FormatToken {
-    Text(String),
+    Text(Box<str>),
     Placeholder(Placeholder),
 }

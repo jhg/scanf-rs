@@ -1,6 +1,9 @@
 //! Format string tokenization at compile-time.
 
-use crate::constants::*;
+use crate::constants::{
+    MAX_FORMAT_STRING_LEN, MAX_TOKENS, MAX_IDENTIFIER_LEN,
+    TOKENS_INITIAL_CAPACITY, TEXT_SEGMENT_CAPACITY, IDENTIFIER_CAPACITY,
+};
 use crate::types::{FormatToken, Placeholder};
 use crate::validation::is_valid_identifier;
 use proc_macro::TokenStream;
@@ -31,23 +34,23 @@ pub fn tokenize_format_string(
     let mut chars = format_str.chars().peekable();
     let mut current_text = String::with_capacity(TEXT_SEGMENT_CAPACITY);
 
-    let push_token =
-        |tokens: &mut Vec<FormatToken>, token: FormatToken| -> Result<(), TokenStream> {
-            if tokens.len() >= MAX_TOKENS {
-                return Err(syn::Error::new(
-                    format_lit.span(),
-                    format!(
-                        "Too many tokens in format string. Maximum allowed: {}. \
+    let push_token = |tokens: &mut Vec<FormatToken>, token: FormatToken| -> Result<(), TokenStream> {
+        if tokens.len() >= MAX_TOKENS {
+            return Err(syn::Error::new(
+                format_lit.span(),
+                format!(
+                    "Too many tokens in format string (would exceed {}). Maximum allowed: {}. \
                      This limit prevents compile-time resource exhaustion.",
-                        MAX_TOKENS
-                    ),
-                )
-                .to_compile_error()
-                .into());
-            }
-            tokens.push(token);
-            Ok(())
-        };
+                    tokens.len() + 1,
+                    MAX_TOKENS
+                ),
+            )
+            .to_compile_error()
+            .into());
+        }
+        tokens.push(token);
+        Ok(())
+    };
 
     while let Some(ch) = chars.next() {
         match ch {
@@ -59,10 +62,7 @@ pub fn tokenize_format_string(
                 }
 
                 if !current_text.is_empty() {
-                    push_token(
-                        &mut tokens,
-                        FormatToken::Text(std::mem::take(&mut current_text)),
-                    )?;
+                    push_token(&mut tokens, FormatToken::Text(std::mem::take(&mut current_text).into_boxed_str()))?;
                     current_text = String::with_capacity(TEXT_SEGMENT_CAPACITY);
                 }
 
@@ -131,7 +131,7 @@ pub fn tokenize_format_string(
     }
 
     if !current_text.is_empty() {
-        push_token(&mut tokens, FormatToken::Text(current_text))?;
+        push_token(&mut tokens, FormatToken::Text(current_text.into_boxed_str()))?;
     }
 
     Ok(tokens)
