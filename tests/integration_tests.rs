@@ -147,3 +147,104 @@ fn test_type_mismatch_error() {
     assert!(result.is_err());
     assert_eq!(score, "95"); // use variable
 }
+
+#[test]
+fn test_empty_input() {
+    // Test parsing empty strings
+    let input = "";
+    let mut value: String = String::new();
+    let result = sscanf!(input, "{value}");
+    // Empty string should parse as empty String
+    assert!(result.is_ok());
+    assert_eq!(value, "");
+}
+
+#[test]
+fn test_whitespace_handling() {
+    // Test that whitespace in separators is preserved
+    let input = "10  20";
+    let mut a: i32 = 0;
+    let mut b: i32 = 0;
+    sscanf!(input, "{}  {}", &mut a, &mut b).unwrap();
+    assert_eq!(a, 10);
+    assert_eq!(b, 20);
+}
+
+#[test]
+fn test_single_placeholder() {
+    // Test with only one placeholder
+    let input = "42";
+    let mut value: i32 = 0;
+    sscanf!(input, "{value}").unwrap();
+    assert_eq!(value, 42);
+}
+
+#[test]
+fn test_leading_fixed_text() {
+    // Test with fixed text before placeholders
+    let input = "Value: 100";
+    let mut value: i32 = 0;
+    sscanf!(input, "Value: {value}").unwrap();
+    assert_eq!(value, 100);
+}
+
+#[test]
+fn test_trailing_fixed_text() {
+    // Test with fixed text after placeholders
+    let input = "100 units";
+    let mut value: i32 = 0;
+    sscanf!(input, "{} units", &mut value).unwrap();
+    assert_eq!(value, 100);
+}
+
+#[test]
+fn test_multiple_escaped_braces() {
+    // Test multiple escaped braces
+    let input = "{{test}}";
+    let mut value: String = String::new();
+    sscanf!(input, "{{{{{value}}}}}",).unwrap();
+    assert_eq!(value, "test");
+}
+
+#[test]
+fn test_negative_numbers() {
+    // Test parsing negative numbers
+    let input = "-42, -3.14";
+    let mut int_val: i32 = 0;
+    let mut float_val: f64 = 0.0;
+    sscanf!(input, "{}, {}", &mut int_val, &mut float_val).unwrap();
+    assert_eq!(int_val, -42);
+    assert!((float_val + 3.14).abs() < f64::EPSILON * 100.0);
+}
+
+#[test]
+fn test_unsigned_overflow_detection() {
+    // Test that parsing fails for invalid unsigned values
+    let input = "-1";
+    let mut value: u32 = 0;
+    let result = sscanf!(input, "{}", &mut value);
+    // Should fail to parse negative number as unsigned
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_special_characters_in_separator() {
+    // Test special characters in separators
+    let input = "10|20";
+    let mut a: i32 = 0;
+    let mut b: i32 = 0;
+    sscanf!(input, "{}|{}", &mut a, &mut b).unwrap();
+    assert_eq!(a, 10);
+    assert_eq!(b, 20);
+}
+
+#[test]
+fn test_long_separator() {
+    // Test with multi-character separator
+    let input = "apple-->banana";
+    let mut a: String = String::new();
+    let mut b: String = String::new();
+    sscanf!(input, "{}-->{}", &mut a, &mut b).unwrap();
+    assert_eq!(a, "apple");
+    assert_eq!(b, "banana");
+}
