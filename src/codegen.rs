@@ -15,7 +15,6 @@ pub fn generate_parsing_code(
     explicit_args: &[&Expr],
     format_lit: &LitStr,
 ) -> Result<(Vec<proc_macro2::TokenStream>, usize), TokenStream> {
-    // Pre-allocate: typically one code block per token
     let mut generated = Vec::with_capacity(tokens.len());
     let mut pending_placeholder: Option<Placeholder> = None;
     let mut anon_index: usize = 0;
@@ -23,7 +22,6 @@ pub fn generate_parsing_code(
     for token in tokens {
         match token {
             FormatToken::Placeholder(ph) => {
-                // Check for consecutive placeholders (ambiguous)
                 if pending_placeholder.is_some() {
                     return Err(syn::Error::new(
                         format_lit.span(),
@@ -39,7 +37,6 @@ pub fn generate_parsing_code(
                 let lit_text = LitStr::new(text, Span::call_site());
 
                 if let Some(ph) = pending_placeholder.take() {
-                    // Generate code for placeholder followed by text
                     match ph {
                         Placeholder::Named(name) => {
                             generated
@@ -61,14 +58,12 @@ pub fn generate_parsing_code(
                         }
                     }
                 } else {
-                    // No placeholder - just fixed text that must match
                     generated.push(generate_fixed_text_match(&lit_text));
                 }
             }
         }
     }
 
-    // Handle final pending placeholder (consumes rest of input)
     if let Some(ph) = pending_placeholder {
         match ph {
             Placeholder::Named(name) => {
@@ -289,7 +284,6 @@ pub fn generate_scanf_implementation(
 ) -> Result<Vec<proc_macro2::TokenStream>, TokenStream> {
     let format_str = format_lit.value();
 
-    // Validate format string is not empty
     if format_str.is_empty() {
         return Err(syn::Error::new(
             format_lit.span(),
@@ -299,10 +293,8 @@ pub fn generate_scanf_implementation(
         .into());
     }
 
-    // Tokenize the format string at compile-time
     let tokens = tokenize_format_string(&format_str, format_lit)?;
 
-    // Validate there's at least something to parse
     if tokens.is_empty() {
         return Err(syn::Error::new(
             format_lit.span(),
@@ -312,10 +304,8 @@ pub fn generate_scanf_implementation(
         .into());
     }
 
-    // Generate the parsing code
     let (generated, anon_index) = generate_parsing_code(&tokens, explicit_args, format_lit)?;
 
-    // Check if there are unused arguments
     if anon_index < explicit_args.len() {
         let unused_count = explicit_args.len() - anon_index;
         return Err(syn::Error::new(

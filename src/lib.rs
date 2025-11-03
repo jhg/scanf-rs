@@ -94,15 +94,12 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
     let format_lit = &args.format;
     let explicit_args: Vec<_> = args.args.iter().collect();
 
-    // Generate the parsing implementation
     let generated = match generate_scanf_implementation(format_lit, &explicit_args) {
         Ok(code) => code,
         Err(err) => return err,
     };
 
-    // Hygiene: The double braces {{ }} create an isolated scope.
-    // Variables `result` and `remaining` cannot collide with user code.
-    // This is the idiomatic Rust way to ensure macro hygiene and avoid name collisions.
+    // Scope isolation ensures macro hygiene
     let expanded = quote! {{
         let mut result: std::io::Result<()> = Ok(());
         let mut remaining = #input_expr;
@@ -141,22 +138,18 @@ pub fn scanf(input: TokenStream) -> TokenStream {
     let format_lit = &args.format;
     let explicit_args: Vec<_> = args.args.iter().collect();
 
-    // Generate the parsing implementation
     let generated = match generate_scanf_implementation(format_lit, &explicit_args) {
         Ok(code) => code,
         Err(err) => return err,
     };
 
-    // Hygiene: The double braces {{ }} create an isolated scope.
-    // Variables `result`, `buffer`, `input`, and `remaining` cannot collide with user code.
-    // This is the idiomatic Rust way to ensure macro hygiene.
+    // Scope isolation ensures macro hygiene
     let expanded = quote! {{
         let mut result: std::io::Result<()> = Ok(());
         let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
         match std::io::stdin().read_line(&mut buffer) {
             Ok(_) => {
-                // Trim trailing newline/carriage return characters for consistent parsing
                 let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
                 let mut remaining: &str = input;
                 #(#generated)*

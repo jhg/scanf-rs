@@ -12,25 +12,17 @@ const RUST_KEYWORDS: &[&str] = &[
 /// Check if string is valid Rust identifier (non-empty, not keyword, alphabetic/_ start, alphanumeric/_ chars).
 #[inline]
 pub fn is_valid_identifier(s: &str) -> bool {
-    if s.is_empty() {
+    if s.is_empty() || RUST_KEYWORDS.contains(&s) {
         return false;
     }
 
-    // Check if the identifier is a Rust keyword
-    if RUST_KEYWORDS.contains(&s) {
-        return false;
-    }
-
-    // Invariant: We already checked s.is_empty() above, so next() will return Some
     let mut chars = s.chars();
-    let first = chars.next().unwrap();
+    let first = chars.next().unwrap(); // SAFETY: checked is_empty above
 
-    // First character: alphabetic (Unicode) or underscore, but not a digit
     if !first.is_alphabetic() && first != '_' {
         return false;
     }
 
-    // Subsequent characters: alphanumeric (Unicode) or underscore
     chars.all(|c| c.is_alphanumeric() || c == '_')
 }
 
