@@ -10,7 +10,7 @@ use syn::{Expr, Ident, LitStr, spanned::Spanned};
 /// Generate parsing code from tokens.
 ///
 /// Returns `(code, anon_count)` or error for consecutive placeholders / missing args.
-pub fn generate_parsing_code(
+fn generate_parsing_code(
     tokens: &[FormatToken],
     explicit_args: &[&Expr],
     format_lit: &LitStr,
