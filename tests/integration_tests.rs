@@ -300,7 +300,7 @@ fn test_complex_parsing_scenario() {
 #[test]
 fn test_input_with_trailing_whitespace() {
     // Test that trailing whitespace does not affect parsing
-    let input = "42  ";  // trailing spaces
+    let input = "42  "; // trailing spaces
     let mut value: i32 = 0;
     sscanf!(input.trim_end(), "{value}").unwrap();
     assert_eq!(value, 42);
@@ -316,4 +316,3 @@ fn test_empty_string_field_parsing() {
     assert_eq!(value, "");
     assert_eq!(marker, "end");
 }
-
