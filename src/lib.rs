@@ -82,22 +82,27 @@ fn is_valid_identifier(s: &str) -> bool {
     chars.all(|c| c.is_alphanumeric() || c == '_')
 }
 
-#[proc_macro]
-pub fn sscanf(input: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(input as SscanfArgs);
+/// Token type for compile-time tokenization of format strings.
+/// 
+/// This represents either literal text or a placeholder in the format string.
+#[derive(Debug, Clone)]
+enum CTToken {
+    Text(String),
+    Placeholder(Placeholder),
+}
 
-    let input_expr = &args.input;
-    let format_lit = &args.format;
-    let format_str = format_lit.value();
-    let explicit_args: Vec<_> = args.args.iter().collect();
-
-    // Compile-time tokenization (text segments + placeholder sequence) to eliminate runtime cost
-    #[derive(Debug, Clone)]
-    enum CTToken {
-        Text(String),
-        Placeholder(Placeholder),
-    }
-
+/// Tokenizes a format string into text segments and placeholders at compile-time.
+/// 
+/// This function parses the format string, handling escaped braces (`{{` and `}}`),
+/// and returns a sequence of tokens that can be processed to generate parsing code.
+/// 
+/// # Errors
+/// 
+/// Returns a compile error if the format string contains unescaped `}` characters.
+fn tokenize_format_string(
+    format_str: &str,
+    format_lit: &LitStr,
+) -> Result<Vec<CTToken>, TokenStream> {
     let mut ct_tokens: Vec<CTToken> = Vec::new();
     let mut chars = format_str.chars().peekable();
     let mut current_text = String::new();
@@ -128,7 +133,7 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                 } else if is_valid_identifier(&content) {
                     ct_tokens.push(CTToken::Placeholder(Placeholder::Named(content)));
                 } else {
-                    // Invalid identifier => treat as anonymous to mirror runtime behavior
+                    // Invalid identifier => treat as anonymous
                     ct_tokens.push(CTToken::Placeholder(Placeholder::Anonymous));
                 }
             }
@@ -138,10 +143,10 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                     chars.next();
                     current_text.push('}');
                 } else {
-                    // Unescaped single '}' is invalid in runtime parser; we signal compile-time error
-                    return syn::Error::new(format_lit.span(), "Unescaped '}' in format string")
+                    // Unescaped single '}' is invalid
+                    return Err(syn::Error::new(format_lit.span(), "Unescaped '}' in format string")
                         .to_compile_error()
-                        .into();
+                        .into());
                 }
             }
             other => current_text.push(other),
@@ -151,27 +156,44 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
         ct_tokens.push(CTToken::Text(current_text));
     }
 
-    // Generate code implementing mismo algoritmo que runtime InputFormatParser::inputs
+    Ok(ct_tokens)
+}
+
+/// Generates parsing code from tokenized format string.
+/// 
+/// This function takes the tokenized format string and generates the corresponding
+/// Rust code that will parse input according to the format specification.
+/// 
+/// # Errors
+/// 
+/// Returns a compile error if:
+/// - Consecutive placeholders without separator are found
+/// - Anonymous placeholders don't have corresponding arguments
+/// - Too many arguments are provided
+fn generate_parsing_code(
+    ct_tokens: &[CTToken],
+    explicit_args: &[&Expr],
+    format_lit: &LitStr,
+) -> Result<(Vec<proc_macro2::TokenStream>, usize), TokenStream> {
     let mut generated = Vec::new();
     let mut pending_placeholder: Option<Placeholder> = None;
-    let mut anon_index: usize = 0; // index into explicit_args
+    let mut anon_index: usize = 0;
 
-    for token in &ct_tokens {
+    for token in ct_tokens {
         match token {
             CTToken::Placeholder(ph) => {
                 if pending_placeholder.is_some() {
-                    return syn::Error::new(
+                    return Err(syn::Error::new(
                         format_lit.span(),
                         "Consecutive placeholders without separator are not supported",
                     )
                     .to_compile_error()
-                    .into();
+                    .into());
                 }
-                pending_placeholder = Some((*ph).clone());
+                pending_placeholder = Some(ph.clone());
             }
             CTToken::Text(text) => {
                 let lit_text = LitStr::new(text, Span::call_site());
-                // When we reach text we must resolve pending placeholder (if any)
                 if let Some(ph) = pending_placeholder.take() {
                     match ph {
                         Placeholder::Named(name) => {
@@ -201,12 +223,12 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                         }
                         Placeholder::Anonymous => {
                             if anon_index >= explicit_args.len() {
-                                return syn::Error::new(
+                                return Err(syn::Error::new(
                                     format_lit.span(),
                                     "Anonymous placeholder '{}' found but no corresponding argument provided"
                                 )
                                 .to_compile_error()
-                                .into();
+                                .into());
                             }
                             let arg_expr = explicit_args[anon_index];
                             anon_index += 1;
@@ -235,7 +257,7 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
                         }
                     }
                 } else {
-                    // Just advance over required fixed text at start or between plain texts (rare)
+                    // Just advance over required fixed text
                     generated.push(quote! {
                         if let Some(pos) = __rest.find(#lit_text) {
                             // Ensure we match immediately at position 0
@@ -260,7 +282,7 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
     }
 
     // Final pending placeholder consumes rest
-    if let Some(ph) = pending_placeholder.take() {
+    if let Some(ph) = pending_placeholder {
         match ph {
             Placeholder::Named(name) => {
                 let ident = Ident::new(&name, Span::call_site());
@@ -281,12 +303,12 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
             }
             Placeholder::Anonymous => {
                 if anon_index >= explicit_args.len() {
-                    return syn::Error::new(
+                    return Err(syn::Error::new(
                         format_lit.span(),
                         "Anonymous placeholder '{}' found but no corresponding argument provided",
                     )
                     .to_compile_error()
-                    .into();
+                    .into());
                 }
                 let arg_expr = explicit_args[anon_index];
                 anon_index += 1;
@@ -308,6 +330,31 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
         }
     }
 
+    Ok((generated, anon_index))
+}
+
+#[proc_macro]
+pub fn sscanf(input: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(input as SscanfArgs);
+
+    let input_expr = &args.input;
+    let format_lit = &args.format;
+    let format_str = format_lit.value();
+    let explicit_args: Vec<_> = args.args.iter().collect();
+
+    // Tokenize the format string at compile-time
+    let ct_tokens = match tokenize_format_string(&format_str, format_lit) {
+        Ok(tokens) => tokens,
+        Err(err) => return err,
+    };
+
+    // Generate the parsing code
+    let (generated, anon_index) = match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
+        Ok(result) => result,
+        Err(err) => return err,
+    };
+
+    // Check if there are unused arguments
     if anon_index < explicit_args.len() {
         return syn::Error::new(
             explicit_args[anon_index].span(),
@@ -361,206 +408,19 @@ pub fn scanf(input: TokenStream) -> TokenStream {
     let format_str = format_lit.value();
     let explicit_args: Vec<_> = args.args.iter().collect();
 
-    #[derive(Debug, Clone)]
-    enum CTToken {
-        Text(String),
-        Placeholder(Placeholder),
-    }
-    let mut ct_tokens: Vec<CTToken> = Vec::new();
-    let mut chars = format_str.chars().peekable();
-    let mut current_text = String::new();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '{' => {
-                if chars.peek() == Some(&'{') {
-                    chars.next();
-                    current_text.push('{');
-                    continue;
-                }
-                if !current_text.is_empty() {
-                    ct_tokens.push(CTToken::Text(std::mem::take(&mut current_text)));
-                }
-                let mut content = String::new();
-                for c2 in chars.by_ref() {
-                    if c2 == '}' {
-                        break;
-                    }
-                    content.push(c2);
-                }
-                if content.is_empty() {
-                    ct_tokens.push(CTToken::Placeholder(Placeholder::Anonymous));
-                } else if is_valid_identifier(&content) {
-                    ct_tokens.push(CTToken::Placeholder(Placeholder::Named(content)));
-                } else {
-                    ct_tokens.push(CTToken::Placeholder(Placeholder::Anonymous));
-                }
-            }
-            '}' => {
-                if chars.peek() == Some(&'}') {
-                    chars.next();
-                    current_text.push('}');
-                } else {
-                    return syn::Error::new(format_lit.span(), "Unescaped '}' in format string")
-                        .to_compile_error()
-                        .into();
-                }
-            }
-            other => current_text.push(other),
-        }
-    }
-    if !current_text.is_empty() {
-        ct_tokens.push(CTToken::Text(current_text));
-    }
+    // Tokenize the format string at compile-time
+    let ct_tokens = match tokenize_format_string(&format_str, format_lit) {
+        Ok(tokens) => tokens,
+        Err(err) => return err,
+    };
 
-    let mut generated = Vec::new();
-    let mut pending_placeholder: Option<Placeholder> = None;
-    let mut anon_index: usize = 0;
-    for token in &ct_tokens {
-        match token {
-            CTToken::Placeholder(ph) => {
-                if pending_placeholder.is_some() {
-                    return syn::Error::new(
-                        format_lit.span(),
-                        "Consecutive placeholders without separator are not supported",
-                    )
-                    .to_compile_error()
-                    .into();
-                }
-                pending_placeholder = Some((*ph).clone());
-            }
-            CTToken::Text(text) => {
-                let lit_text = LitStr::new(text, Span::call_site());
-                if let Some(ph) = pending_placeholder.take() {
-                    match ph {
-                        Placeholder::Named(name) => {
-                            let ident = Ident::new(&name, Span::call_site());
-                            generated.push(quote! {
-                                if let Some(pos) = __rest.find(#lit_text) {
-                                    let slice = &__rest[..pos];
-                                    match slice.parse() {
-                                        Ok(parsed) => {
-                                            #ident = parsed;
-                                        }
-                                        Err(error) => {
-                                            __result = __result.and(Err(std::io::Error::new(
-                                                std::io::ErrorKind::InvalidInput,
-                                                error
-                                            )));
-                                        }
-                                    }
-                                    __rest = &__rest[pos + #lit_text.len()..];
-                                } else {
-                                    __result = __result.and(Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidInput,
-                                        format!("Can not find text separator {:?}", #lit_text)
-                                    )));
-                                }
-                            });
-                        }
-                        Placeholder::Anonymous => {
-                            if anon_index >= explicit_args.len() {
-                                return syn::Error::new(
-                                    format_lit.span(),
-                                    "Anonymous placeholder '{}' found but no corresponding argument provided"
-                                )
-                                .to_compile_error()
-                                .into();
-                            }
-                            let arg_expr = explicit_args[anon_index];
-                            anon_index += 1;
-                            generated.push(quote! {
-                                if let Some(pos) = __rest.find(#lit_text) {
-                                    let slice = &__rest[..pos];
-                                    match slice.parse() {
-                                        Ok(parsed) => {
-                                            *#arg_expr = parsed;
-                                        }
-                                        Err(error) => {
-                                            __result = __result.and(Err(std::io::Error::new(
-                                                std::io::ErrorKind::InvalidInput,
-                                                error
-                                            )));
-                                        }
-                                    }
-                                    __rest = &__rest[pos + #lit_text.len()..];
-                                } else {
-                                    __result = __result.and(Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidInput,
-                                        format!("Can not find text separator {:?}", #lit_text)
-                                    )));
-                                }
-                            });
-                        }
-                    }
-                } else {
-                    generated.push(quote! {
-                        if let Some(pos) = __rest.find(#lit_text) {
-                            if pos == 0 {
-                                __rest = &__rest[#lit_text.len()..];
-                            } else {
-                                __result = __result.and(Err(std::io::Error::new(
-                                    std::io::ErrorKind::InvalidInput,
-                                    format!("Expected text {:?} at current position", #lit_text)
-                                )));
-                            }
-                        } else {
-                            __result = __result.and(Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidInput,
-                                format!("Can not find text separator {:?}", #lit_text)
-                            )));
-                        }
-                    });
-                }
-            }
-        }
-    }
-    if let Some(ph) = pending_placeholder.take() {
-        match ph {
-            Placeholder::Named(name) => {
-                let ident = Ident::new(&name, Span::call_site());
-                generated.push(quote! {
-                    match __rest.parse() {
-                        Ok(parsed) => {
-                            #ident = parsed;
-                        }
-                        Err(error) => {
-                            __result = __result.and(Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidInput,
-                                error
-                            )));
-                        }
-                    }
-                    __rest = "";
-                });
-            }
-            Placeholder::Anonymous => {
-                if anon_index >= explicit_args.len() {
-                    return syn::Error::new(
-                        format_lit.span(),
-                        "Anonymous placeholder '{}' found but no corresponding argument provided",
-                    )
-                    .to_compile_error()
-                    .into();
-                }
-                let arg_expr = explicit_args[anon_index];
-                anon_index += 1;
-                generated.push(quote! {
-                    match __rest.parse() {
-                        Ok(parsed) => {
-                            *#arg_expr = parsed;
-                        }
-                        Err(error) => {
-                            __result = __result.and(Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidInput,
-                                error
-                            )));
-                        }
-                    }
-                    __rest = "";
-                });
-            }
-        }
-    }
+    // Generate the parsing code
+    let (generated, anon_index) = match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
+        Ok(result) => result,
+        Err(err) => return err,
+    };
+
+    // Check if there are unused arguments
     if anon_index < explicit_args.len() {
         return syn::Error::new(
             explicit_args[anon_index].span(),
