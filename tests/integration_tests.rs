@@ -214,7 +214,7 @@ fn test_negative_numbers() {
     let mut float_val: f64 = 0.0;
     sscanf!(input, "{}, {}", &mut int_val, &mut float_val).unwrap();
     assert_eq!(int_val, -42);
-    assert!((float_val + 3.14).abs() < 0.001);
+    assert!((float_val + 3.14).abs() < f64::EPSILON * 100.0);
 }
 
 #[test]
