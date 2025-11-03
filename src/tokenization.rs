@@ -178,8 +178,14 @@ mod tests {
         assert_eq!(tokens.len(), 256, "Should have exactly 256 tokens");
 
         // Verify both placeholders and text are counted
-        let placeholder_count = tokens.iter().filter(|t| matches!(t, FormatToken::Placeholder(_))).count();
-        let text_count = tokens.iter().filter(|t| matches!(t, FormatToken::Text(_))).count();
+        let placeholder_count = tokens
+            .iter()
+            .filter(|t| matches!(t, FormatToken::Placeholder(_)))
+            .count();
+        let text_count = tokens
+            .iter()
+            .filter(|t| matches!(t, FormatToken::Text(_)))
+            .count();
         assert_eq!(placeholder_count, 128, "Should have 128 placeholders");
         assert_eq!(text_count, 128, "Should have 128 text tokens");
     }
