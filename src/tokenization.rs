@@ -43,7 +43,7 @@ pub fn tokenize_format_string(
                 if !current_text.is_empty() {
                     tokens.push(FormatToken::Text(std::mem::take(&mut current_text)));
 
-                    if tokens.len() > MAX_TOKENS {
+                    if tokens.len() >= MAX_TOKENS {
                         return Err(syn::Error::new(
                             format_lit.span(),
                             format!(
