@@ -88,12 +88,11 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 
     // Scope isolation ensures macro hygiene
     let expanded = quote! {{
-        {
-            let mut result: std::io::Result<()> = Ok(());
+        (|| -> std::io::Result<()> {
             let mut remaining = #input_expr;
             #(#generated)*
-            result
-        }
+            Ok(())
+        })()
     }};
 
     TokenStream::from(expanded)
@@ -134,20 +133,15 @@ pub fn scanf(input: TokenStream) -> TokenStream {
 
     // Scope isolation ensures macro hygiene
     let expanded = quote! {{
-        {
-            let mut result: std::io::Result<()> = Ok(());
+        (|| -> std::io::Result<()> {
             let mut buffer = String::new();
             let _ = std::io::Write::flush(&mut std::io::stdout());
-            match std::io::stdin().read_line(&mut buffer) {
-                Ok(_) => {
-                    let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
-                    let mut remaining: &str = input;
-                    #(#generated)*
-                    result
-                }
-                Err(e) => Err(e)
-            }
-        }
+            std::io::stdin().read_line(&mut buffer)?;
+            let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
+            let mut remaining: &str = input;
+            #(#generated)*
+            Ok(())
+        })()
     }};
     TokenStream::from(expanded)
 }

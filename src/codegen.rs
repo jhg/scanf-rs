@@ -94,30 +94,27 @@ fn generate_placeholder_with_separator(
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
     quote! {
-        if let Some(pos) = remaining.find(#separator) {
-            let slice = &remaining[..pos];
-            match slice.parse() {
-                Ok(parsed) => {
-                    #assignment
-                }
-                Err(error) => {
-                    result = result.and(Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!("Failed to parse {} from {:?}: {}", #var_desc, slice, error)
-                    )));
-                }
-            }
-            remaining = &remaining[pos + #separator.len()..];
-        } else {
-            result = result.and(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "Expected separator {:?} for {} not found in remaining input: {:?}",
-                    #separator,
-                    #var_desc,
-                    remaining
+        {
+            let pos = remaining.find(#separator).ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!(
+                        "Expected separator {:?} for {} not found in remaining input: {:?}",
+                        #separator,
+                        #var_desc,
+                        remaining
+                    )
                 )
-            )));
+            })?;
+            let slice = &remaining[..pos];
+            let parsed = slice.parse().map_err(|error| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("Failed to parse {} from {:?}: {}", #var_desc, slice, error)
+                )
+            })?;
+            #assignment
+            remaining = &remaining[pos + #separator.len()..];
         }
     }
 }
@@ -147,30 +144,18 @@ fn generate_anonymous_placeholder_with_separator(
 /// Generate code for fixed text matching at current position.
 fn generate_fixed_text_match(text: &LitStr) -> proc_macro2::TokenStream {
     quote! {
-        if let Some(pos) = remaining.find(#text) {
-            if pos == 0 {
-                remaining = &remaining[#text.len()..];
-            } else {
-                result = result.and(Err(std::io::Error::new(
+        {
+            if !remaining.starts_with(#text) {
+                return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!(
-                        "Expected text {:?} at current position, but found it at offset {}. \
-                         Remaining input: {:?}",
+                        "Expected text {:?} at current position. Remaining input: {:?}",
                         #text,
-                        pos,
                         remaining
                     )
-                )));
+                ));
             }
-        } else {
-            result = result.and(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "Required text separator {:?} not found. Remaining input: {:?}",
-                    #text,
-                    remaining
-                )
-            )));
+            remaining = &remaining[#text.len()..];
         }
     }
 }
@@ -181,18 +166,16 @@ fn generate_final_placeholder(
     var_desc: &str,
 ) -> proc_macro2::TokenStream {
     quote! {
-        match remaining.parse() {
-            Ok(parsed) => {
-                #assignment
-            }
-            Err(error) => {
-                result = result.and(Err(std::io::Error::new(
+        {
+            let parsed = remaining.parse().map_err(|error| {
+                std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!("Failed to parse {} from remaining input {:?}: {}", #var_desc, remaining, error)
-                )));
-            }
+                )
+            })?;
+            #assignment
+            remaining = "";
         }
-        remaining = "";
     }
 }
 
