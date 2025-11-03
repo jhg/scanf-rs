@@ -242,7 +242,7 @@ pub fn scanf(input: TokenStream) -> TokenStream {
         Err(err) => return err,
     };
 
-    // SAFETY: The double braces {{ }} create an isolated scope.
+    // Hygiene: The double braces {{ }} create an isolated scope.
     // Variables `result`, `buffer`, `input`, and `remaining` cannot collide with user code.
     // This is the idiomatic Rust way to ensure macro hygiene.
     let expanded = quote! {{
