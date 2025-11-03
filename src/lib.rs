@@ -17,6 +17,23 @@
 //! Las macros generan código dentro de scopes aislados `{{ ... }}` para evitar
 //! colisiones de nombres. Las variables internas usan nombres descriptivos sin
 //! prefijos especiales, confiando en el aislamiento del scope.
+//!
+//! # Limitaciones conocidas
+//!
+//! - **Placeholders consecutivos**: No se permiten placeholders sin separador (ej. `{}{}`),
+//!   ya que resultaría en parsing ambiguo.
+//! - **Parsing greedy**: Los placeholders consumen texto hasta encontrar el próximo
+//!   separador. No se soporta backtracking.
+//! - **Trait requerido**: Todos los tipos deben implementar `FromStr`.
+//! - **Newlines en scanf!**: Se eliminan automáticamente los saltos de línea al final
+//!   del input para facilitar el parsing.
+//!
+//! # Rendimiento
+//!
+//! El código generado es eficiente:
+//! - Zero-cost abstractions: no hay overhead vs parsing manual
+//! - Sin allocations adicionales en el código generado
+//! - Errores detectados en compile-time cuando es posible
 
 #![forbid(unsafe_code)]
 #![allow(clippy::needless_return)]
@@ -170,9 +187,9 @@ fn tokenize_format_string(
     format_str: &str,
     format_lit: &LitStr,
 ) -> Result<Vec<FormatToken>, TokenStream> {
-    let mut tokens: Vec<FormatToken> = Vec::new();
+    let mut tokens: Vec<FormatToken> = Vec::with_capacity(4); // Pre-allocate for typical case
     let mut chars = format_str.chars().peekable();
-    let mut current_text = String::new();
+    let mut current_text = String::with_capacity(16); // Pre-allocate for typical separator
 
     while let Some(ch) = chars.next() {
         match ch {
@@ -273,7 +290,8 @@ fn generate_parsing_code(
     explicit_args: &[&Expr],
     format_lit: &LitStr,
 ) -> Result<(Vec<proc_macro2::TokenStream>, usize), TokenStream> {
-    let mut generated = Vec::new();
+    // Pre-allocate: typically one code block per token
+    let mut generated = Vec::with_capacity(tokens.len());
     let mut pending_placeholder: Option<Placeholder> = None;
     let mut anon_index: usize = 0;
 
