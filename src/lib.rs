@@ -1,75 +1,75 @@
-//! Macros procedurales para parsing de texto estilo scanf/sscanf de C.
+//! Procedural macros for C-style scanf/sscanf text parsing.
 //!
-//! Esta crate proporciona dos macros principales:
-//! - `scanf!`: Lee y parsea desde stdin
-//! - `sscanf!`: Parsea desde un string
+//! This crate provides two main macros:
+//! - `scanf!`: Reads and parses from stdin
+//! - `sscanf!`: Parses from a string
 //!
-//! # Arquitectura
+//! # Architecture
 //!
-//! El proceso de parsing se divide en tres fases:
-//! 1. **Tokenización**: El format string se analiza en compile-time para identificar
-//!    texto literal y placeholders
-//! 2. **Generación de código**: Se genera código Rust que realiza el parsing en runtime
-//! 3. **Expansión**: La macro se expande al código generado
+//! The parsing process is divided into three phases:
+//! 1. **Tokenization**: The format string is analyzed at compile-time to identify
+//!    literal text and placeholders
+//! 2. **Code Generation**: Rust code is generated that performs parsing at runtime
+//! 3. **Expansion**: The macro expands to the generated code
 //!
-//! # Higiene de nombres
+//! # Name Hygiene
 //!
-//! Las macros generan código dentro de scopes aislados `{{ ... }}` para evitar
-//! colisiones de nombres. Las variables internas usan nombres descriptivos sin
-//! prefijos especiales, confiando en el aislamiento del scope.
+//! The macros generate code within isolated scopes `{{ ... }}` to avoid
+//! name collisions. Internal variables use descriptive names without
+//! special prefixes, relying on scope isolation.
 //!
-//! # Limitaciones conocidas
+//! # Known Limitations
 //!
-//! - **Placeholders consecutivos**: No se permiten placeholders sin separador (ej. `{}{}`),
-//!   ya que resultaría en parsing ambiguo.
-//! - **Parsing greedy**: Los placeholders consumen texto hasta encontrar el próximo
-//!   separador. No se soporta backtracking.
-//! - **Trait requerido**: Todos los tipos deben implementar `FromStr`.
-//! - **Newlines en scanf!**: Se eliminan automáticamente los saltos de línea al final
-//!   del input para facilitar el parsing.
+//! - **Consecutive placeholders**: Placeholders without separators (e.g., `{}{}`) are not allowed,
+//!   as they would result in ambiguous parsing.
+//! - **Greedy parsing**: Placeholders consume text until finding the next
+//!   separator. Backtracking is not supported.
+//! - **Required trait**: All types must implement `FromStr`.
+//! - **Newlines in scanf!**: Line breaks at the end of input are automatically removed
+//!   to facilitate parsing.
 //!
-//! # Rendimiento
+//! # Performance
 //!
-//! El código generado es eficiente:
-//! - Zero-cost abstractions: no hay overhead vs parsing manual
-//! - Sin allocations adicionales en el código generado
-//! - Errores detectados en compile-time cuando es posible
-//! - Pre-allocación inteligente de memoria donde es apropiado
+//! The generated code is efficient:
+//! - Zero-cost abstractions: no overhead vs manual parsing
+//! - No additional allocations in generated code
+//! - Errors detected at compile-time when possible
+//! - Smart memory pre-allocation where appropriate
 //!
-//! # Seguridad
+//! # Security
 //!
-//! Esta crate implementa múltiples capas de protección:
+//! This crate implements multiple layers of protection:
 //!
-//! ## Protección contra DoS en Compile-Time
+//! ## Compile-Time DoS Protection
 //!
-//! - **Format strings**: Máximo 10,000 bytes
-//! - **Tokens**: Máximo 256 tokens por format string
-//! - **Identificadores**: Máximo 128 caracteres
+//! - **Format strings**: Maximum 10,000 bytes
+//! - **Tokens**: Maximum 256 tokens per format string
+//! - **Identifiers**: Maximum 128 characters
 //!
-//! Estos límites previenen ataques de denegación de servicio durante la compilación
-//! mientras permiten todos los casos de uso legítimos.
+//! These limits prevent denial-of-service attacks during compilation
+//! while allowing all legitimate use cases.
 //!
-//! ## Seguridad de Memoria
+//! ## Memory Safety
 //!
-//! - `#![forbid(unsafe_code)]`: No hay código unsafe
-//! - Uso de `Box<str>` en lugar de `String` donde es apropiado
-//! - No hay integer overflow: todos los índices están bounds-checked
-//! - No hay panics ocultos en código generado
+//! - `#![forbid(unsafe_code)]`: No unsafe code
+//! - Use of `Box<str>` instead of `String` where appropriate
+//! - No integer overflow: all indices are bounds-checked
+//! - No hidden panics in generated code
 //!
-//! ## Código Generado
+//! ## Generated Code
 //!
-//! El código generado usa solo operaciones seguras:
-//! - `.find()` para búsqueda de texto (no panic)
-//! - Slicing solo después de validar índices
-//! - `.parse()` con manejo explícito de errores
-//! - Result types para propagación de errores
+//! The generated code uses only safe operations:
+//! - `.find()` for text search (cannot panic)
+//! - Slicing only after validating indices
+//! - `.parse()` with explicit error handling
+//! - Result types for error propagation
 //!
-//! ## Validación de Inputs
+//! ## Input Validation
 //!
-//! - Format strings vacíos rechazados
-//! - Identificadores Rust inválidos rechazados
-//! - Keywords de Rust rechazados en placeholders
-//! - Braces sin escapar detectados en compile-time
+//! - Empty format strings rejected
+//! - Invalid Rust identifiers rejected
+//! - Rust keywords rejected in placeholders
+//! - Unescaped braces detected at compile-time
 
 #![forbid(unsafe_code)]
 #![allow(clippy::needless_return)]
@@ -357,31 +357,31 @@ fn tokenize_format_string(
 // Code Generation
 // ============================================================================
 
-/// Genera código de parsing a partir del format string tokenizado.
+/// Generates parsing code from the tokenized format string.
 ///
-/// Esta función toma el format string tokenizado y genera el código Rust
-/// correspondiente que realizará el parsing del input según la especificación.
+/// This function takes the tokenized format string and generates the corresponding
+/// Rust code that will perform parsing of the input according to the specification.
 ///
-/// # Algoritmo
+/// # Algorithm
 ///
-/// Para cada token:
-/// - **Texto literal**: Busca y consume ese texto exacto del input
-/// - **Placeholder + Texto**: Busca el texto y parsea todo lo anterior al placeholder
-/// - **Placeholder final**: Parsea todo el input restante
+/// For each token:
+/// - **Literal text**: Searches for and consumes that exact text from input
+/// - **Placeholder + Text**: Searches for the text and parses everything before the placeholder
+/// - **Final placeholder**: Parses all remaining input
 ///
-/// # Manejo de errores
+/// # Error Handling
 ///
-/// Los errores se acumulan en una variable `result` que combina múltiples errores
-/// usando el patrón `.and(Err(...))`. Esto permite que el parsing continue
-/// para proporcionar mejor feedback de errores.
+/// Errors accumulate in a `result` variable that combines multiple errors
+/// using the `.and(Err(...))` pattern. This allows parsing to continue
+/// to provide better error feedback.
 ///
-/// # Nota de diseño
+/// # Design Note
 ///
-/// El código para Named y Anonymous placeholders es similar pero NO se extrae
-/// en una función helper porque:
-/// - Los mensajes de error son diferentes y específicos
-/// - La claridad es más importante que DRY extremo
-/// - El código inline es más fácil de entender y mantener (human-first)
+/// Code for Named and Anonymous placeholders is similar but NOT extracted
+/// into a helper function because:
+/// - Error messages are different and specific
+/// - Clarity is more important than extreme DRY
+/// - Inline code is easier to understand and maintain (human-first)
 ///
 /// # Errors
 ///
@@ -601,10 +601,10 @@ fn generate_parsing_code(
     Ok((generated, anon_index))
 }
 
-/// Genera el código de parsing común para ambas macros sscanf y scanf.
+/// Generates common parsing code for both sscanf and scanf macros.
 ///
-/// Esta función centraliza la lógica compartida de generación de código para evitar
-/// duplicación entre las dos macros.
+/// This function centralizes the shared code generation logic to avoid
+/// duplication between the two macros.
 fn generate_scanf_implementation(
     format_lit: &LitStr,
     explicit_args: &[&Expr],
@@ -659,41 +659,41 @@ fn generate_scanf_implementation(
 // Public Macros
 // ============================================================================
 
-/// Parsea un string según un format string, similar a `sscanf` de C.
+/// Parses a string according to a format string, similar to C's `sscanf`.
 ///
-/// # Sintaxis
+/// # Syntax
 ///
 /// ```ignore
 /// sscanf!(input_expr, "format string", args...)
 /// ```
 ///
-/// - `input_expr`: Expresión que evalúa a un `&str`
-/// - `format string`: String literal con placeholders `{}` o `{nombre}`
-/// - `args...`: Referencias mutables para placeholders anónimos `{}`
+/// - `input_expr`: Expression that evaluates to a `&str`
+/// - `format string`: String literal with `{}` or `{name}` placeholders
+/// - `args...`: Mutable references for anonymous `{}` placeholders
 ///
 /// # Placeholders
 ///
-/// - **Nombrados**: `{variable}` - captura a una variable con ese nombre en el scope
-/// - **Anónimos**: `{}` - requiere un argumento explícito `&mut var`
+/// - **Named**: `{variable}` - captures to a variable with that name in scope
+/// - **Anonymous**: `{}` - requires an explicit `&mut var` argument
 ///
-/// # Retorno
+/// # Returns
 ///
-/// Retorna `std::io::Result<()>`:
-/// - `Ok(())` si el parsing fue exitoso
-/// - `Err(...)` si hubo error de parsing o de formato
+/// Returns `std::io::Result<()>`:
+/// - `Ok(())` if parsing was successful
+/// - `Err(...)` if there was a parsing or format error
 ///
-/// # Limitaciones
+/// # Limitations
 ///
-/// - No se pueden tener placeholders consecutivos sin separador (ambiguo)
-/// - Los tipos deben implementar `FromStr`
-/// - El parsing es greedy: consume hasta encontrar el próximo separador
+/// - Cannot have consecutive placeholders without separator (ambiguous)
+/// - Types must implement `FromStr`
+/// - Parsing is greedy: consumes until finding the next separator
 ///
-/// # Ejemplos
+/// # Examples
 ///
 /// ```
 /// use scanf::sscanf;
 ///
-/// // Placeholders anónimos
+/// // Anonymous placeholders
 /// let input = "42: hello";
 /// let mut num: i32 = 0;
 /// let mut text: String = String::new();
@@ -701,7 +701,7 @@ fn generate_scanf_implementation(
 /// assert_eq!(num, 42);
 /// assert_eq!(text, "hello");
 ///
-/// // Placeholders nombrados
+/// // Named placeholders
 /// let input = "x=10, y=20";
 /// let mut x: i32 = 0;
 /// let mut y: i32 = 0;
@@ -761,45 +761,45 @@ impl Parse for ScanfArgs {
     }
 }
 
-/// Lee una línea de stdin y la parsea según un format string, similar a `scanf` de C.
+/// Reads a line from stdin and parses it according to a format string, similar to C's `scanf`.
 ///
-/// # Sintaxis
+/// # Syntax
 ///
 /// ```ignore
 /// scanf!("format string", args...)
 /// ```
 ///
-/// - `format string`: String literal con placeholders `{}` o `{nombre}`
-/// - `args...`: Referencias mutables para placeholders anónimos `{}`
+/// - `format string`: String literal with `{}` or `{name}` placeholders
+/// - `args...`: Mutable references for anonymous `{}` placeholders
 ///
-/// # Comportamiento
+/// # Behavior
 ///
-/// 1. Hace flush de stdout (para mostrar prompts si los hay)
-/// 2. Lee una línea completa de stdin (incluyendo newline)
-/// 3. Parsea la línea según el format string
+/// 1. Flushes stdout (to display prompts if any)
+/// 2. Reads a complete line from stdin (including newline)
+/// 3. Parses the line according to the format string
 ///
-/// # Retorno
+/// # Returns
 ///
-/// Retorna `std::io::Result<()>`:
-/// - `Ok(())` si la lectura y parsing fueron exitosos
-/// - `Err(...)` si hubo error de I/O o de parsing
+/// Returns `std::io::Result<()>`:
+/// - `Ok(())` if reading and parsing were successful
+/// - `Err(...)` if there was an I/O or parsing error
 ///
-/// # Nota importante
+/// # Important Note
 ///
-/// El newline al final de la línea **no** se incluye en el input a parsear,
-/// facilitando el parsing de líneas simples.
+/// The newline at the end of the line is **not** included in the input to parse,
+/// facilitating the parsing of simple lines.
 ///
-/// # Ejemplos
+/// # Examples
 ///
 /// ```no_run
 /// use scanf::scanf;
 ///
-/// // Leer un número
+/// // Read a number
 /// let mut age: i32 = 0;
 /// print!("Enter your age: ");
 /// scanf!("{}", &mut age).unwrap();
 ///
-/// // Placeholders nombrados
+/// // Named placeholders
 /// let mut name: String = String::new();
 /// let mut score: f64 = 0.0;
 /// print!("Enter name and score: ");
