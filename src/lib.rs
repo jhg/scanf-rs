@@ -375,6 +375,14 @@ fn tokenize_format_string(
 /// usando el patrón `.and(Err(...))`. Esto permite que el parsing continue
 /// para proporcionar mejor feedback de errores.
 ///
+/// # Nota de diseño
+///
+/// El código para Named y Anonymous placeholders es similar pero NO se extrae
+/// en una función helper porque:
+/// - Los mensajes de error son diferentes y específicos
+/// - La claridad es más importante que DRY extremo
+/// - El código inline es más fácil de entender y mantener (human-first)
+///
 /// # Errors
 ///
 /// Returns a compile error if:
