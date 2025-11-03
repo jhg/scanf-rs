@@ -8,7 +8,7 @@ use crate::types::{FormatToken, Placeholder};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
-use syn::{spanned::Spanned, Expr, Ident, LitStr};
+use syn::{Expr, Ident, LitStr, spanned::Spanned};
 
 /// Generates parsing code from the tokenized format string.
 ///
@@ -85,9 +85,8 @@ pub fn generate_parsing_code(
                     // Generate code for placeholder followed by text
                     match ph {
                         Placeholder::Named(name) => {
-                            generated.push(generate_named_placeholder_with_separator(
-                                &name, &lit_text,
-                            ));
+                            generated
+                                .push(generate_named_placeholder_with_separator(&name, &lit_text));
                         }
                         Placeholder::Anonymous => {
                             if anon_index >= explicit_args.len() {
@@ -100,9 +99,7 @@ pub fn generate_parsing_code(
                             let arg_expr = explicit_args[anon_index];
                             anon_index += 1;
                             generated.push(generate_anonymous_placeholder_with_separator(
-                                arg_expr,
-                                anon_index,
-                                &lit_text,
+                                arg_expr, anon_index, &lit_text,
                             ));
                         }
                     }
@@ -122,7 +119,11 @@ pub fn generate_parsing_code(
             }
             Placeholder::Anonymous => {
                 if anon_index >= explicit_args.len() {
-                    return Err(make_missing_argument_error(anon_index + 1, true, format_lit));
+                    return Err(make_missing_argument_error(
+                        anon_index + 1,
+                        true,
+                        format_lit,
+                    ));
                 }
                 let arg_expr = explicit_args[anon_index];
                 anon_index += 1;

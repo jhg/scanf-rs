@@ -87,12 +87,12 @@
 // Module Organization
 // ============================================================================
 
+mod codegen;
 mod constants;
-mod types;
-mod validation;
 mod parsing;
 mod tokenization;
-mod codegen;
+mod types;
+mod validation;
 
 // ============================================================================
 // Re-exports for Public API

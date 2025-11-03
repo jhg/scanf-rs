@@ -3,10 +3,10 @@
 //! This module defines the structures used to parse macro arguments at compile-time.
 
 use syn::{
+    Expr, LitStr, Token,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     token::Comma,
-    Expr, LitStr, Token,
 };
 
 // ============================================================================
