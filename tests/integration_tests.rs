@@ -209,12 +209,12 @@ fn test_multiple_escaped_braces() {
 #[test]
 fn test_negative_numbers() {
     // Test parsing negative numbers
-    let input = "-42, -3.14";
+    let input = "-42, -3.25";
     let mut int_val: i32 = 0;
     let mut float_val: f64 = 0.0;
     sscanf!(input, "{}, {}", &mut int_val, &mut float_val).unwrap();
     assert_eq!(int_val, -42);
-    assert!((float_val + 3.14).abs() < f64::EPSILON * 100.0);
+    assert!((float_val + 3.25).abs() < f64::EPSILON * 100.0);
 }
 
 #[test]
@@ -247,4 +247,52 @@ fn test_long_separator() {
     sscanf!(input, "{}-->{}", &mut a, &mut b).unwrap();
     assert_eq!(a, "apple");
     assert_eq!(b, "banana");
+}
+
+#[test]
+fn test_identifier_with_numbers() {
+    // Test that identifiers with numbers work correctly
+    let input = "42, 3.25";
+    let mut var1: i32 = 0;
+    let mut var2: f64 = 0.0;
+    sscanf!(input, "{var1}, {var2}").unwrap();
+    assert_eq!(var1, 42);
+    assert_eq!(var2, 3.25);
+}
+
+#[test]
+fn test_identifier_with_underscore() {
+    // Test identifiers with underscores
+    let input = "100 200";
+    let mut _private_var: i32 = 0;
+    let mut my_var: i32 = 0;
+    sscanf!(input, "{_private_var} {my_var}").unwrap();
+    assert_eq!(_private_var, 100);
+    assert_eq!(my_var, 200);
+}
+
+#[test]
+fn test_unicode_identifier() {
+    // Test Unicode identifiers (valid in Rust)
+    let input = "42";
+    let mut número: i32 = 0;
+    sscanf!(input, "{número}").unwrap();
+    assert_eq!(número, 42);
+}
+
+#[test]
+fn test_complex_parsing_scenario() {
+    // Test a more complex real-world scenario
+    let input = "User: john_doe, Age: 25, Score: 95.5";
+    let mut username: String = String::new();
+    let mut user_age: i32 = 0;
+    let mut user_score: f64 = 0.0;
+    sscanf!(
+        input,
+        "User: {username}, Age: {user_age}, Score: {user_score}"
+    )
+    .unwrap();
+    assert_eq!(username, "john_doe");
+    assert_eq!(user_age, 25);
+    assert_eq!(user_score, 95.5);
 }

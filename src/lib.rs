@@ -1,3 +1,23 @@
+//! Macros procedurales para parsing de texto estilo scanf/sscanf de C.
+//!
+//! Esta crate proporciona dos macros principales:
+//! - `scanf!`: Lee y parsea desde stdin
+//! - `sscanf!`: Parsea desde un string
+//!
+//! # Arquitectura
+//!
+//! El proceso de parsing se divide en tres fases:
+//! 1. **Tokenización**: El format string se analiza en compile-time para identificar
+//!    texto literal y placeholders
+//! 2. **Generación de código**: Se genera código Rust que realiza el parsing en runtime
+//! 3. **Expansión**: La macro se expande al código generado
+//!
+//! # Higiene de nombres
+//!
+//! Las macros generan código dentro de scopes aislados `{{ ... }}` para evitar
+//! colisiones de nombres. Las variables internas usan nombres descriptivos sin
+//! prefijos especiales, confiando en el aislamiento del scope.
+
 #![forbid(unsafe_code)]
 #![allow(clippy::needless_return)]
 #![doc = include_str!("../README.md")]
@@ -13,6 +33,10 @@ use syn::{
     spanned::Spanned,
     token::Comma,
 };
+
+// ============================================================================
+// Argument Parsing Structures
+// ============================================================================
 
 /// Arguments for the `sscanf!` macro.
 ///
@@ -49,10 +73,14 @@ impl Parse for SscanfArgs {
     }
 }
 
+// ============================================================================
+// Core Types and Validation
+// ============================================================================
+
 /// Represents a placeholder in a format string.
 ///
 /// Placeholders can be either named (e.g., `{variable}`) or anonymous (e.g., `{}`).
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Placeholder {
     /// A named placeholder that captures to a specific variable
     Named(String),
@@ -63,29 +91,68 @@ enum Placeholder {
 /// Checks if a string is a valid Rust identifier.
 ///
 /// A valid identifier must:
-/// - Start with an alphabetic character or underscore
-/// - Contain only alphanumeric characters or underscores
+/// - Not be empty
+/// - Not be a Rust keyword
+/// - Start with an alphabetic character (including Unicode) or underscore
+/// - Contain only alphanumeric characters (including Unicode) or underscores
+///
+/// Note: This doesn't check for raw identifiers (r#name) as they're not needed
+/// in placeholder context.
+///
+/// # Performance
+///
+/// This function is called at compile-time during macro expansion, so it's optimized
+/// for correctness over runtime performance. The keyword check uses a simple slice
+/// search which is acceptable for compile-time use.
+#[inline]
 fn is_valid_identifier(s: &str) -> bool {
     if s.is_empty() {
+        return false;
+    }
+
+    // Check for Rust keywords (common ones that would be problematic in placeholders)
+    // Using a slice is fine for compile-time checks; the list is small enough
+    const KEYWORDS: &[&str] = &[
+        "as", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn",
+        "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
+        "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe",
+        "use", "where", "while", "async", "await", "dyn", "abstract", "become", "box", "do",
+        "final", "macro", "override", "priv", "typeof", "unsized", "virtual", "yield", "try",
+    ];
+
+    if KEYWORDS.contains(&s) {
         return false;
     }
 
     let mut chars = s.chars();
     let first = chars.next().unwrap();
 
+    // First character: alphabetic (Unicode) or underscore, but not a digit
     if !first.is_alphabetic() && first != '_' {
         return false;
     }
 
+    // Subsequent characters: alphanumeric (Unicode) or underscore
     chars.all(|c| c.is_alphanumeric() || c == '_')
 }
+
+// ============================================================================
+// Compile-Time Tokenization
+// ============================================================================
 
 /// Token type for compile-time tokenization of format strings.
 ///
 /// This represents either literal text or a placeholder in the format string.
+///
+/// # Design note
+///
+/// CTToken is only used during compile-time macro expansion, not in the generated
+/// runtime code. Therefore, we prioritize code clarity over runtime performance.
 #[derive(Debug, Clone)]
 enum CTToken {
+    /// A literal text segment that must match exactly in the input
     Text(String),
+    /// A placeholder that captures a value from the input
     Placeholder(Placeholder),
 }
 
@@ -131,8 +198,19 @@ fn tokenize_format_string(
                 } else if is_valid_identifier(&content) {
                     ct_tokens.push(CTToken::Placeholder(Placeholder::Named(content)));
                 } else {
-                    // Invalid identifier => treat as anonymous
-                    ct_tokens.push(CTToken::Placeholder(Placeholder::Anonymous));
+                    // Invalid identifier - return error with helpful message
+                    return Err(syn::Error::new(
+                        format_lit.span(),
+                        format!(
+                            "Invalid identifier '{}' in placeholder. \
+                             Identifiers must start with a letter or underscore, \
+                             contain only alphanumeric characters or underscores, \
+                             and not be Rust keywords. Use '{{}}' for anonymous placeholders.",
+                            content
+                        ),
+                    )
+                    .to_compile_error()
+                    .into());
                 }
             }
             '}' => {
@@ -160,15 +238,32 @@ fn tokenize_format_string(
     Ok(ct_tokens)
 }
 
-/// Generates parsing code from tokenized format string.
+// ============================================================================
+// Code Generation
+// ============================================================================
+
+/// Genera código de parsing a partir del format string tokenizado.
 ///
-/// This function takes the tokenized format string and generates the corresponding
-/// Rust code that will parse input according to the format specification.
+/// Esta función toma el format string tokenizado y genera el código Rust
+/// correspondiente que realizará el parsing del input según la especificación.
+///
+/// # Algoritmo
+///
+/// Para cada token:
+/// - **Texto literal**: Busca y consume ese texto exacto del input
+/// - **Placeholder + Texto**: Busca el texto y parsea todo lo anterior al placeholder
+/// - **Placeholder final**: Parsea todo el input restante
+///
+/// # Manejo de errores
+///
+/// Los errores se acumulan en una variable `result` que combina múltiples errores
+/// usando el patrón `.and(Err(...))`. Esto permite que el parsing continue
+/// para proporcionar mejor feedback de errores.
 ///
 /// # Errors
 ///
 /// Returns a compile error if:
-/// - Consecutive placeholders without separator are found
+/// - Consecutive placeholders without separator are found (ambiguous parsing)
 /// - Anonymous placeholders don't have corresponding arguments
 /// - Too many arguments are provided
 fn generate_parsing_code(
@@ -186,7 +281,8 @@ fn generate_parsing_code(
                 if pending_placeholder.is_some() {
                     return Err(syn::Error::new(
                         format_lit.span(),
-                        "Consecutive placeholders without separator are not supported",
+                        "Consecutive placeholders without separator are ambiguous and not supported. \
+                         Add text between placeholders to separate them. Example: '{}:{}' instead of '{}{}'",
                     )
                     .to_compile_error()
                     .into());
@@ -200,24 +296,28 @@ fn generate_parsing_code(
                         Placeholder::Named(name) => {
                             let ident = Ident::new(&name, Span::call_site());
                             generated.push(quote! {
-                                if let Some(pos) = __rest.find(#lit_text) {
-                                    let slice = &__rest[..pos];
+                                if let Some(pos) = remaining.find(#lit_text) {
+                                    let slice = &remaining[..pos];
                                     match slice.parse() {
                                         Ok(parsed) => {
                                             #ident = parsed;
                                         }
                                         Err(error) => {
-                                            __result = __result.and(Err(std::io::Error::new(
+                                            result = result.and(Err(std::io::Error::new(
                                                 std::io::ErrorKind::InvalidInput,
                                                 error
                                             )));
                                         }
                                     }
-                                    __rest = &__rest[pos + #lit_text.len()..];
+                                    remaining = &remaining[pos + #lit_text.len()..];
                                 } else {
-                                    __result = __result.and(Err(std::io::Error::new(
+                                    result = result.and(Err(std::io::Error::new(
                                         std::io::ErrorKind::InvalidInput,
-                                        format!("Can not find text separator {:?}", #lit_text)
+                                        format!(
+                                            "Expected separator {:?} not found in remaining input: {:?}",
+                                            #lit_text,
+                                            remaining
+                                        )
                                     )));
                                 }
                             });
@@ -226,7 +326,11 @@ fn generate_parsing_code(
                             if anon_index >= explicit_args.len() {
                                 return Err(syn::Error::new(
                                     format_lit.span(),
-                                    "Anonymous placeholder '{}' found but no corresponding argument provided"
+                                    format!(
+                                        "Anonymous placeholder '{{}}' at position {} has no corresponding argument. \
+                                         Provide a mutable reference argument (e.g., &mut var) or use a named placeholder (e.g., '{{var}}')",
+                                        anon_index + 1
+                                    )
                                 )
                                 .to_compile_error()
                                 .into());
@@ -234,24 +338,28 @@ fn generate_parsing_code(
                             let arg_expr = explicit_args[anon_index];
                             anon_index += 1;
                             generated.push(quote! {
-                                if let Some(pos) = __rest.find(#lit_text) {
-                                    let slice = &__rest[..pos];
+                                if let Some(pos) = remaining.find(#lit_text) {
+                                    let slice = &remaining[..pos];
                                     match slice.parse() {
                                         Ok(parsed) => {
                                             *#arg_expr = parsed;
                                         }
                                         Err(error) => {
-                                            __result = __result.and(Err(std::io::Error::new(
+                                            result = result.and(Err(std::io::Error::new(
                                                 std::io::ErrorKind::InvalidInput,
                                                 error
                                             )));
                                         }
                                     }
-                                    __rest = &__rest[pos + #lit_text.len()..];
+                                    remaining = &remaining[pos + #lit_text.len()..];
                                 } else {
-                                    __result = __result.and(Err(std::io::Error::new(
+                                    result = result.and(Err(std::io::Error::new(
                                         std::io::ErrorKind::InvalidInput,
-                                        format!("Can not find text separator {:?}", #lit_text)
+                                        format!(
+                                            "Expected separator {:?} not found in remaining input: {:?}",
+                                            #lit_text,
+                                            remaining
+                                        )
                                     )));
                                 }
                             });
@@ -260,20 +368,30 @@ fn generate_parsing_code(
                 } else {
                     // Just advance over required fixed text
                     generated.push(quote! {
-                        if let Some(pos) = __rest.find(#lit_text) {
+                        if let Some(pos) = remaining.find(#lit_text) {
                             // Ensure we match immediately at position 0
                             if pos == 0 {
-                                __rest = &__rest[#lit_text.len()..];
+                                remaining = &remaining[#lit_text.len()..];
                             } else {
-                                __result = __result.and(Err(std::io::Error::new(
+                                result = result.and(Err(std::io::Error::new(
                                     std::io::ErrorKind::InvalidInput,
-                                    format!("Expected text {:?} at current position", #lit_text)
+                                    format!(
+                                        "Expected text {:?} at current position, but found it at offset {}. \
+                                         Remaining input: {:?}",
+                                        #lit_text,
+                                        pos,
+                                        remaining
+                                    )
                                 )));
                             }
                         } else {
-                            __result = __result.and(Err(std::io::Error::new(
+                            result = result.and(Err(std::io::Error::new(
                                 std::io::ErrorKind::InvalidInput,
-                                format!("Can not find text separator {:?}", #lit_text)
+                                format!(
+                                    "Required text separator {:?} not found. Remaining input: {:?}",
+                                    #lit_text,
+                                    remaining
+                                )
                             )));
                         }
                     });
@@ -288,25 +406,29 @@ fn generate_parsing_code(
             Placeholder::Named(name) => {
                 let ident = Ident::new(&name, Span::call_site());
                 generated.push(quote! {
-                    match __rest.parse() {
+                    match remaining.parse() {
                         Ok(parsed) => {
                             #ident = parsed;
                         }
                         Err(error) => {
-                            __result = __result.and(Err(std::io::Error::new(
+                            result = result.and(Err(std::io::Error::new(
                                 std::io::ErrorKind::InvalidInput,
                                 error
                             )));
                         }
                     }
-                    __rest = ""; // consumed
+                    remaining = ""; // consumed
                 });
             }
             Placeholder::Anonymous => {
                 if anon_index >= explicit_args.len() {
                     return Err(syn::Error::new(
                         format_lit.span(),
-                        "Anonymous placeholder '{}' found but no corresponding argument provided",
+                        format!(
+                            "Final anonymous placeholder '{{}}' at position {} has no corresponding argument. \
+                             Provide a mutable reference argument (e.g., &mut var) or use a named placeholder (e.g., '{{var}}')",
+                            anon_index + 1
+                        )
                     )
                     .to_compile_error()
                     .into());
@@ -314,18 +436,18 @@ fn generate_parsing_code(
                 let arg_expr = explicit_args[anon_index];
                 anon_index += 1;
                 generated.push(quote! {
-                    match __rest.parse() {
+                    match remaining.parse() {
                         Ok(parsed) => {
                             *#arg_expr = parsed;
                         }
                         Err(error) => {
-                            __result = __result.and(Err(std::io::Error::new(
+                            result = result.and(Err(std::io::Error::new(
                                 std::io::ErrorKind::InvalidInput,
                                 error
                             )));
                         }
                     }
-                    __rest = ""; // consumed
+                    remaining = ""; // consumed
                 });
             }
         }
@@ -334,49 +456,118 @@ fn generate_parsing_code(
     Ok((generated, anon_index))
 }
 
+/// Genera el código de parsing común para ambas macros sscanf y scanf.
+///
+/// Esta función centraliza la lógica compartida de generación de código para evitar
+/// duplicación entre las dos macros.
+fn generate_scanf_implementation(
+    format_lit: &LitStr,
+    explicit_args: &[&Expr],
+) -> Result<Vec<proc_macro2::TokenStream>, TokenStream> {
+    let format_str = format_lit.value();
+
+    // Tokenize the format string at compile-time
+    let ct_tokens = tokenize_format_string(&format_str, format_lit)?;
+
+    // Generate the parsing code
+    let (generated, anon_index) = generate_parsing_code(&ct_tokens, explicit_args, format_lit)?;
+
+    // Check if there are unused arguments
+    if anon_index < explicit_args.len() {
+        let unused_count = explicit_args.len() - anon_index;
+        return Err(syn::Error::new(
+            explicit_args[anon_index].span(),
+            format!(
+                "Too many arguments: {} unused argument(s) provided. \
+                 The format string only has {} anonymous placeholder(s)",
+                unused_count, anon_index
+            ),
+        )
+        .to_compile_error()
+        .into());
+    }
+
+    Ok(generated)
+}
+
+// ============================================================================
+// Public Macros
+// ============================================================================
+
+/// Parsea un string según un format string, similar a `sscanf` de C.
+///
+/// # Sintaxis
+///
+/// ```ignore
+/// sscanf!(input_expr, "format string", args...)
+/// ```
+///
+/// - `input_expr`: Expresión que evalúa a un `&str`
+/// - `format string`: String literal con placeholders `{}` o `{nombre}`
+/// - `args...`: Referencias mutables para placeholders anónimos `{}`
+///
+/// # Placeholders
+///
+/// - **Nombrados**: `{variable}` - captura a una variable con ese nombre en el scope
+/// - **Anónimos**: `{}` - requiere un argumento explícito `&mut var`
+///
+/// # Retorno
+///
+/// Retorna `std::io::Result<()>`:
+/// - `Ok(())` si el parsing fue exitoso
+/// - `Err(...)` si hubo error de parsing o de formato
+///
+/// # Limitaciones
+///
+/// - No se pueden tener placeholders consecutivos sin separador (ambiguo)
+/// - Los tipos deben implementar `FromStr`
+/// - El parsing es greedy: consume hasta encontrar el próximo separador
+///
+/// # Ejemplos
+///
+/// ```
+/// use scanf::sscanf;
+///
+/// // Placeholders anónimos
+/// let input = "42: hello";
+/// let mut num: i32 = 0;
+/// let mut text: String = String::new();
+/// sscanf!(input, "{}: {}", &mut num, &mut text).unwrap();
+/// assert_eq!(num, 42);
+/// assert_eq!(text, "hello");
+///
+/// // Placeholders nombrados
+/// let input = "x=10, y=20";
+/// let mut x: i32 = 0;
+/// let mut y: i32 = 0;
+/// sscanf!(input, "x={x}, y={y}").unwrap();
+/// assert_eq!(x, 10);
+/// assert_eq!(y, 20);
+/// ```
 #[proc_macro]
 pub fn sscanf(input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(input as SscanfArgs);
 
     let input_expr = &args.input;
     let format_lit = &args.format;
-    let format_str = format_lit.value();
     let explicit_args: Vec<_> = args.args.iter().collect();
 
-    // Tokenize the format string at compile-time
-    let ct_tokens = match tokenize_format_string(&format_str, format_lit) {
-        Ok(tokens) => tokens,
+    // Generate the parsing implementation
+    let generated = match generate_scanf_implementation(format_lit, &explicit_args) {
+        Ok(code) => code,
         Err(err) => return err,
     };
 
-    // Generate the parsing code
-    let (generated, anon_index) =
-        match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
-            Ok(result) => result,
-            Err(err) => return err,
-        };
-
-    // Check if there are unused arguments
-    if anon_index < explicit_args.len() {
-        return syn::Error::new(
-            explicit_args[anon_index].span(),
-            "Too many arguments provided for format string",
-        )
-        .to_compile_error()
-        .into();
-    }
-
     let expanded = quote! {{
-        let mut __result: std::io::Result<()> = Ok(());
-        let mut __rest = #input_expr;
+        // Scope aislado para parsing - proporciona higiene de nombres
+        let mut result: std::io::Result<()> = Ok(());
+        let mut remaining = #input_expr;
         #(#generated)*
-        __result
+        result
     }};
 
     TokenStream::from(expanded)
 }
-
-// ===== scanf! procedural macro (reads from stdin) =====
 
 /// Arguments for the `scanf!` macro.
 ///
@@ -403,45 +594,72 @@ impl Parse for ScanfArgs {
     }
 }
 
+/// Lee una línea de stdin y la parsea según un format string, similar a `scanf` de C.
+///
+/// # Sintaxis
+///
+/// ```ignore
+/// scanf!("format string", args...)
+/// ```
+///
+/// - `format string`: String literal con placeholders `{}` o `{nombre}`
+/// - `args...`: Referencias mutables para placeholders anónimos `{}`
+///
+/// # Comportamiento
+///
+/// 1. Hace flush de stdout (para mostrar prompts si los hay)
+/// 2. Lee una línea completa de stdin (incluyendo newline)
+/// 3. Parsea la línea según el format string
+///
+/// # Retorno
+///
+/// Retorna `std::io::Result<()>`:
+/// - `Ok(())` si la lectura y parsing fueron exitosos
+/// - `Err(...)` si hubo error de I/O o de parsing
+///
+/// # Nota importante
+///
+/// El newline al final de la línea **no** se incluye en el input a parsear,
+/// facilitando el parsing de líneas simples.
+///
+/// # Ejemplos
+///
+/// ```no_run
+/// use scanf::scanf;
+///
+/// // Leer un número
+/// let mut age: i32 = 0;
+/// print!("Enter your age: ");
+/// scanf!("{}", &mut age).unwrap();
+///
+/// // Placeholders nombrados
+/// let mut name: String = String::new();
+/// let mut score: f64 = 0.0;
+/// print!("Enter name and score: ");
+/// scanf!("{name}: {score}").unwrap();
+/// ```
 #[proc_macro]
 pub fn scanf(input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(input as ScanfArgs);
     let format_lit = &args.format;
-    let format_str = format_lit.value();
     let explicit_args: Vec<_> = args.args.iter().collect();
 
-    // Tokenize the format string at compile-time
-    let ct_tokens = match tokenize_format_string(&format_str, format_lit) {
-        Ok(tokens) => tokens,
+    // Generate the parsing implementation
+    let generated = match generate_scanf_implementation(format_lit, &explicit_args) {
+        Ok(code) => code,
         Err(err) => return err,
     };
 
-    // Generate the parsing code
-    let (generated, anon_index) =
-        match generate_parsing_code(&ct_tokens, &explicit_args, format_lit) {
-            Ok(result) => result,
-            Err(err) => return err,
-        };
-
-    // Check if there are unused arguments
-    if anon_index < explicit_args.len() {
-        return syn::Error::new(
-            explicit_args[anon_index].span(),
-            "Too many arguments provided for format string",
-        )
-        .to_compile_error()
-        .into();
-    }
-
     let expanded = quote! {{
-        let mut __result: std::io::Result<()> = Ok(());
-        let mut __buffer = String::new();
+        // Scope aislado para parsing desde stdin - proporciona higiene de nombres
+        let mut result: std::io::Result<()> = Ok(());
+        let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
-        match std::io::stdin().read_line(&mut __buffer) {
+        match std::io::stdin().read_line(&mut buffer) {
             Ok(_) => {
-                let mut __rest: &str = __buffer.as_str();
+                let mut remaining: &str = buffer.as_str();
                 #(#generated)*
-                __result
+                result
             }
             Err(e) => Err(e)
         }
