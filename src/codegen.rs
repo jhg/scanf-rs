@@ -93,6 +93,7 @@ pub fn generate_parsing_code(
                             if anon_index >= explicit_args.len() {
                                 return Err(make_missing_argument_error(
                                     anon_index + 1,
+                                    false,
                                     format_lit,
                                 ));
                             }
@@ -121,7 +122,7 @@ pub fn generate_parsing_code(
             }
             Placeholder::Anonymous => {
                 if anon_index >= explicit_args.len() {
-                    return Err(make_missing_final_argument_error(anon_index + 1, format_lit));
+                    return Err(make_missing_argument_error(anon_index + 1, true, format_lit));
                 }
                 let arg_expr = explicit_args[anon_index];
                 anon_index += 1;
@@ -303,27 +304,24 @@ fn generate_final_anonymous_placeholder(
 // ============================================================================
 
 /// Creates an error for missing anonymous placeholder argument.
-fn make_missing_argument_error(position: usize, format_lit: &LitStr) -> TokenStream {
+///
+/// # Arguments
+///
+/// - `position`: The position of the placeholder (1-indexed)
+/// - `is_final`: Whether this is the final placeholder in the format string
+/// - `format_lit`: The format string literal for error span
+fn make_missing_argument_error(
+    position: usize,
+    is_final: bool,
+    format_lit: &LitStr,
+) -> TokenStream {
+    let prefix = if is_final { "Final " } else { "" };
     syn::Error::new(
         format_lit.span(),
         format!(
-            "Anonymous placeholder '{{}}' at position {} has no corresponding argument. \
+            "{}anonymous placeholder '{{}}' at position {} has no corresponding argument. \
              Provide a mutable reference argument (e.g., &mut var) or use a named placeholder (e.g., '{{var}}')",
-            position
-        ),
-    )
-    .to_compile_error()
-    .into()
-}
-
-/// Creates an error for missing final anonymous placeholder argument.
-fn make_missing_final_argument_error(position: usize, format_lit: &LitStr) -> TokenStream {
-    syn::Error::new(
-        format_lit.span(),
-        format!(
-            "Final anonymous placeholder '{{}}' at position {} has no corresponding argument. \
-             Provide a mutable reference argument (e.g., &mut var) or use a named placeholder (e.g., '{{var}}')",
-            position
+            prefix, position
         ),
     )
     .to_compile_error()
