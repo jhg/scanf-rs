@@ -28,7 +28,6 @@
 //! **Validation:** Rejects empty formats, keywords, invalid identifiers
 
 #![forbid(unsafe_code)]
-#![allow(clippy::needless_return)]
 #![doc = include_str!("../README.md")]
 
 mod codegen;
