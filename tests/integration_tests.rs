@@ -356,7 +356,10 @@ fn test_security_many_placeholders() {
     sscanf!(input, "{n1} {n2} {n3} {n4} {n5} {n6} {n7} {n8} {n9} {n10}").unwrap();
     // Verify all values parsed correctly
     assert_eq!(n1, 1);
-    assert_eq!(n2 + n3 + n4 + n5 + n6 + n7 + n8 + n9, 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9);
+    assert_eq!(
+        n2 + n3 + n4 + n5 + n6 + n7 + n8 + n9,
+        2 + 3 + 4 + 5 + 6 + 7 + 8 + 9
+    );
     assert_eq!(n10, 10);
 }
 
