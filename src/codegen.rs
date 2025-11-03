@@ -93,7 +93,6 @@ fn generate_named_placeholder_with_separator(
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let var_name = format!("variable '{}'", name);
 
     quote! {
         if let Some(pos) = remaining.find(#separator) {
@@ -105,7 +104,7 @@ fn generate_named_placeholder_with_separator(
                 Err(error) => {
                     result = result.and(Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
-                        format!("Failed to parse {} from {:?}: {}", #var_name, slice, error)
+                        format!("Failed to parse variable '{}' from {:?}: {}", #name, slice, error)
                     )));
                 }
             }
@@ -114,9 +113,9 @@ fn generate_named_placeholder_with_separator(
             result = result.and(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "Expected separator {:?} for {} not found in remaining input: {:?}",
+                    "Expected separator {:?} for variable '{}' not found in remaining input: {:?}",
                     #separator,
-                    #var_name,
+                    #name,
                     remaining
                 )
             )));
@@ -198,7 +197,6 @@ fn generate_fixed_text_match(text: &LitStr) -> proc_macro2::TokenStream {
 /// Generates code for a final named placeholder (consumes rest of input).
 fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let var_name = format!("variable '{}'", name);
 
     quote! {
         match remaining.parse() {
@@ -208,7 +206,7 @@ fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
             Err(error) => {
                 result = result.and(Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    format!("Failed to parse {} from remaining input {:?}: {}", #var_name, remaining, error)
+                    format!("Failed to parse variable '{}' from remaining input {:?}: {}", #name, remaining, error)
                 )));
             }
         }
