@@ -282,7 +282,7 @@ pub fn generate_scanf_implementation(
     if tokens.is_empty() {
         return Err(syn::Error::new(
             format_lit.span(),
-            "Format string contains no parseable content",
+            "Format string contains no parsable content",
         )
         .to_compile_error()
         .into());

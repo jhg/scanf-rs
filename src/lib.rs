@@ -12,7 +12,7 @@
 //!
 //! # Hygiene
 //!
-//! Generated code uses isolated scopes `{{ }}` - no prefix pollution.
+//! Generated code uses isolated scopes `{ }` (block expressions) - no prefix pollution.
 //!
 //! # Limitations
 //!
