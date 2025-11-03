@@ -13,12 +13,12 @@
 //! 3. **Expansion**: The macro expands to the generated code
 //!
 //! The implementation is organized into focused modules:
-//! - [`constants`]: Security limits and memory allocation hints
-//! - [`types`]: Core type definitions
-//! - [`validation`]: Identifier validation
-//! - [`parsing`]: Macro argument parsing
-//! - [`tokenization`]: Format string tokenization
-//! - [`codegen`]: Code generation
+//! - `constants`: Security limits and memory allocation hints
+//! - `types`: Core type definitions
+//! - `validation`: Identifier validation
+//! - `parsing`: Macro argument parsing
+//! - `tokenization`: Format string tokenization
+//! - `codegen`: Code generation
 //!
 //! # Name Hygiene
 //!
