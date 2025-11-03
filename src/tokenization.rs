@@ -191,6 +191,36 @@ mod tests {
     }
 
     #[test]
+    fn test_max_tokens_consecutive_placeholders() {
+        // REGRESSION TEST for CVE-level security fix: Test the exact attack vector
+        // that was fixed in commit 12c119a99f8a018e7ba4082040d18fd6934e3416
+        //
+        // Attack vector: "{}" repeated 257+ times would bypass MAX_TOKENS limit
+        // in vulnerable version because placeholder tokens weren't checked.
+        //
+        // This test verifies that 256 consecutive placeholders (the maximum)
+        // are accepted. In the vulnerable version, this would work, but 257
+        // would also work (the bug). With the fix, 256 works but 257 fails.
+        //
+        // Note: We can't test the 257 failure case in a unit test because
+        // TokenStream errors can only be generated during macro expansion.
+        let format_lit: LitStr = syn::parse_quote!("{}");
+        let format = "{}".repeat(256);
+
+        let result = tokenize_format_string(&format, &format_lit);
+        assert!(result.is_ok(), "Should accept exactly 256 placeholder tokens");
+        let tokens = result.unwrap();
+        assert_eq!(tokens.len(), 256, "Should have exactly 256 placeholder tokens");
+
+        // Verify all are placeholders (no text tokens)
+        let placeholder_count = tokens
+            .iter()
+            .filter(|t| matches!(t, FormatToken::Placeholder(_)))
+            .count();
+        assert_eq!(placeholder_count, 256, "All 256 tokens should be placeholders");
+    }
+
+    #[test]
     fn test_tokenization_basic() {
         let format_lit: LitStr = syn::parse_quote!("{x}");
         let result = tokenize_format_string("{x} text {y}", &format_lit);
