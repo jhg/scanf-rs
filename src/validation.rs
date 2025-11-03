@@ -43,7 +43,7 @@ pub fn is_valid_identifier(s: &str) -> bool {
         return false;
     }
 
-    // SAFETY: We already checked s.is_empty() above, so next() will return Some
+    // Invariant: We already checked s.is_empty() above, so next() will return Some
     let mut chars = s.chars();
     let first = chars.next().unwrap();
 
