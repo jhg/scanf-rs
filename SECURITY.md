@@ -10,7 +10,7 @@ We take security seriously and will respond to vulnerability reports as quickly 
 
 ### Fixed Vulnerabilities
 
-#### SCANF-2025-001: MAX_TOKENS Bypass Vulnerability (CRITICAL)
+#### SCANF-2025-001: MAX_TOKENS Bypass Vulnerability
 
 **Severity**: HIGH  
 **Fixed in**: Commit 12c119a99f8a018e7ba4082040d18fd6934e3416  
@@ -51,8 +51,8 @@ All versions prior to the fix commit 12c119a99f8a018e7ba4082040d18fd6934e3416.
 **Recommendation**:  
 Users should ensure they are using a version that includes the security fix. Check your dependency version and update if necessary.
 
-**Credit**:  
-This vulnerability was identified and fixed by Claude (Anthropic) during a security review.
+**Discovered and Fixed by**:  
+Claude (Anthropic) during a security review.
 
 ## Security Best Practices
 

@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
-- **CRITICAL FIX**: Fixed MAX_TOKENS bypass vulnerability (SCANF-2025-001) in commit 12c119a99f8a018e7ba4082040d18fd6934e3416
+- **HIGH SEVERITY FIX**: Fixed MAX_TOKENS bypass vulnerability (SCANF-2025-001) in commit 12c119a99f8a018e7ba4082040d18fd6934e3416
   - Vulnerability allowed format strings with 257+ consecutive placeholders to bypass the 256 token limit
   - Added safe `push_token()` helper that validates token limit before every push operation
   - Applied validation to all 4 token push sites (previously only 1 was checked)
