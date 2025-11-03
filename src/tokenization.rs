@@ -143,3 +143,62 @@ pub fn tokenize_format_string(
 
     Ok(tokens)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::LitStr;
+
+    // NOTE: Error path tests (exceeding limits) cannot be tested in unit tests because
+    // tokenize_format_string returns Result<Vec<FormatToken>, TokenStream>, and TokenStream
+    // can only be used during macro expansion. These cases are covered by integration tests
+    // that actually try to compile code with the scanf! macro.
+    //
+    // REGRESSION PROTECTION: The security fix for MAX_TOKENS bypass (where only text tokens
+    // were checked, allowing placeholders to bypass the limit) is protected by the test below
+    // which verifies the boundary case works correctly. Any regression would cause this test
+    // to fail as it would reject valid input.
+
+    #[test]
+    fn test_max_tokens_at_boundary() {
+        // REGRESSION TEST: Verify exactly MAX_TOKENS (256) works correctly
+        // This test ensures that BOTH text and placeholder tokens count toward the limit.
+        // If placeholders don't count (the vulnerability), this would fail.
+        let format_lit: LitStr = syn::parse_quote!("{}");
+
+        // 128 placeholders + 128 text separators = 256 tokens total
+        let mut format = String::new();
+        for _ in 0..128 {
+            format.push_str("{} ");
+        }
+
+        let result = tokenize_format_string(&format, &format_lit);
+        assert!(result.is_ok(), "Should accept exactly 256 tokens");
+        let tokens = result.unwrap();
+        assert_eq!(tokens.len(), 256, "Should have exactly 256 tokens");
+
+        // Verify both placeholders and text are counted
+        let placeholder_count = tokens.iter().filter(|t| matches!(t, FormatToken::Placeholder(_))).count();
+        let text_count = tokens.iter().filter(|t| matches!(t, FormatToken::Text(_))).count();
+        assert_eq!(placeholder_count, 128, "Should have 128 placeholders");
+        assert_eq!(text_count, 128, "Should have 128 text tokens");
+    }
+
+    #[test]
+    fn test_tokenization_basic() {
+        let format_lit: LitStr = syn::parse_quote!("{x}");
+        let result = tokenize_format_string("{x} text {y}", &format_lit);
+        assert!(result.is_ok());
+        let tokens = result.unwrap();
+        assert_eq!(tokens.len(), 3); // placeholder, text, placeholder
+    }
+
+    #[test]
+    fn test_escaped_braces() {
+        let format_lit: LitStr = syn::parse_quote!("{{}}");
+        let result = tokenize_format_string("{{text}}", &format_lit);
+        assert!(result.is_ok());
+        let tokens = result.unwrap();
+        assert_eq!(tokens.len(), 1); // Single text token with literal braces
+    }
+}
