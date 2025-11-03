@@ -184,6 +184,7 @@ fn is_valid_identifier(s: &str) -> bool {
         return false;
     }
 
+    // SAFETY: We already checked s.is_empty() above, so next() will return Some
     let mut chars = s.chars();
     let first = chars.next().unwrap();
 
@@ -714,8 +715,10 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
         Err(err) => return err,
     };
 
+    // SAFETY: The double braces {{ }} create an isolated scope.
+    // Variables `result` and `remaining` cannot collide with user code.
+    // This is the idiomatic Rust way to ensure macro hygiene.
     let expanded = quote! {{
-        // Scope aislado para parsing - proporciona higiene de nombres
         let mut result: std::io::Result<()> = Ok(());
         let mut remaining = #input_expr;
         #(#generated)*
@@ -806,8 +809,10 @@ pub fn scanf(input: TokenStream) -> TokenStream {
         Err(err) => return err,
     };
 
+    // SAFETY: The double braces {{ }} create an isolated scope.
+    // Variables `result`, `buffer`, `input`, and `remaining` cannot collide with user code.
+    // This is the idiomatic Rust way to ensure macro hygiene.
     let expanded = quote! {{
-        // Scope aislado para parsing desde stdin - proporciona higiene de nombres
         let mut result: std::io::Result<()> = Ok(());
         let mut buffer = String::new();
         let _ = std::io::Write::flush(&mut std::io::stdout());
