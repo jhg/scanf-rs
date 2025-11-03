@@ -251,7 +251,7 @@ pub fn scanf(input: TokenStream) -> TokenStream {
         let _ = std::io::Write::flush(&mut std::io::stdout());
         match std::io::stdin().read_line(&mut buffer) {
             Ok(_) => {
-                // Trim trailing newline for consistent parsing
+                // Trim trailing newline/carriage return characters for consistent parsing
                 let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
                 let mut remaining: &str = input;
                 #(#generated)*
