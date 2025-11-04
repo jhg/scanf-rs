@@ -113,7 +113,7 @@ fn generate_placeholder_with_separator(
                     format!("Failed to parse {} from {:?}: {}", #var_desc, slice, error)
                 )
             })?;
-            #assignment
+            #assignment;
             remaining = &remaining[pos + #separator.len()..];
         }
     }
@@ -125,7 +125,7 @@ fn generate_named_placeholder_with_separator(
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let assignment = quote! { #ident = parsed; };
+    let assignment = quote! { #ident = parsed };
     let var_desc = format!("variable '{name}'");
     generate_placeholder_with_separator(&assignment, &var_desc, separator)
 }
@@ -136,7 +136,7 @@ fn generate_anonymous_placeholder_with_separator(
     placeholder_num: usize,
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
-    let assignment = quote! { *#arg_expr = parsed; };
+    let assignment = quote! { *#arg_expr = parsed };
     let var_desc = format!("anonymous placeholder #{placeholder_num}");
     generate_placeholder_with_separator(&assignment, &var_desc, separator)
 }
@@ -173,7 +173,7 @@ fn generate_final_placeholder(
                     format!("Failed to parse {} from remaining input {:?}: {}", #var_desc, remaining, error)
                 )
             })?;
-            #assignment
+            #assignment;
             remaining = "";
         }
     }
@@ -182,7 +182,7 @@ fn generate_final_placeholder(
 /// Generate code for final named placeholder (consumes rest of input).
 fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let assignment = quote! { #ident = parsed; };
+    let assignment = quote! { #ident = parsed };
     let var_desc = format!("variable '{name}'");
     generate_final_placeholder(&assignment, &var_desc)
 }
@@ -192,7 +192,7 @@ fn generate_final_anonymous_placeholder(
     arg_expr: &Expr,
     placeholder_num: usize,
 ) -> proc_macro2::TokenStream {
-    let assignment = quote! { *#arg_expr = parsed; };
+    let assignment = quote! { *#arg_expr = parsed };
     let var_desc = format!("anonymous placeholder #{placeholder_num}");
     generate_final_placeholder(&assignment, &var_desc)
 }
