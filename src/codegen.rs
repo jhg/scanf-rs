@@ -89,7 +89,7 @@ fn generate_parsing_code(
 
 /// Generate code for placeholder with separator (named or anonymous).
 fn generate_placeholder_with_separator(
-    assignment: &proc_macro2::TokenStream,
+    assignment_stmt: &proc_macro2::TokenStream,
     var_desc: &str,
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
@@ -113,7 +113,7 @@ fn generate_placeholder_with_separator(
                     format!("Failed to parse {} from {:?}: {}", #var_desc, slice, error)
                 )
             })?;
-            #assignment;
+            #assignment_stmt;
             remaining = &remaining[pos + #separator.len()..];
         }
     }
@@ -125,9 +125,9 @@ fn generate_named_placeholder_with_separator(
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let assignment = quote! { #ident = parsed };
+    let assignment_stmt = quote! { #ident = parsed };
     let var_desc = format!("variable '{name}'");
-    generate_placeholder_with_separator(&assignment, &var_desc, separator)
+    generate_placeholder_with_separator(&assignment_stmt, &var_desc, separator)
 }
 
 /// Generate code for anonymous placeholder with separator.
@@ -136,9 +136,9 @@ fn generate_anonymous_placeholder_with_separator(
     placeholder_num: usize,
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
-    let assignment = quote! { *#arg_expr = parsed };
+    let assignment_stmt = quote! { *#arg_expr = parsed };
     let var_desc = format!("anonymous placeholder #{placeholder_num}");
-    generate_placeholder_with_separator(&assignment, &var_desc, separator)
+    generate_placeholder_with_separator(&assignment_stmt, &var_desc, separator)
 }
 
 /// Generate code for fixed text matching at current position.
@@ -162,7 +162,7 @@ fn generate_fixed_text_match(text: &LitStr) -> proc_macro2::TokenStream {
 
 /// Generate code for final placeholder (consumes rest of input).
 fn generate_final_placeholder(
-    assignment: &proc_macro2::TokenStream,
+    assignment_stmt: &proc_macro2::TokenStream,
     var_desc: &str,
 ) -> proc_macro2::TokenStream {
     quote! {
@@ -173,7 +173,7 @@ fn generate_final_placeholder(
                     format!("Failed to parse {} from remaining input {:?}: {}", #var_desc, remaining, error)
                 )
             })?;
-            #assignment;
+            #assignment_stmt;
             remaining = "";
         }
     }
@@ -182,9 +182,9 @@ fn generate_final_placeholder(
 /// Generate code for final named placeholder (consumes rest of input).
 fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let assignment = quote! { #ident = parsed };
+    let assignment_stmt = quote! { #ident = parsed };
     let var_desc = format!("variable '{name}'");
-    generate_final_placeholder(&assignment, &var_desc)
+    generate_final_placeholder(&assignment_stmt, &var_desc)
 }
 
 /// Generate code for final anonymous placeholder (consumes rest of input).
@@ -192,9 +192,9 @@ fn generate_final_anonymous_placeholder(
     arg_expr: &Expr,
     placeholder_num: usize,
 ) -> proc_macro2::TokenStream {
-    let assignment = quote! { *#arg_expr = parsed };
+    let assignment_stmt = quote! { *#arg_expr = parsed };
     let var_desc = format!("anonymous placeholder #{placeholder_num}");
-    generate_final_placeholder(&assignment, &var_desc)
+    generate_final_placeholder(&assignment_stmt, &var_desc)
 }
 
 /// Create error for missing anonymous placeholder argument.
