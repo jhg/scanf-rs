@@ -129,7 +129,7 @@ fn generate_named_placeholder_with_separator(
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let assignment_stmt = quote! { #ident = parsed };  // No trailing semicolon
+    let assignment_stmt = quote! { #ident = parsed }; // No trailing semicolon
     let var_desc = format!("variable '{name}'");
     generate_placeholder_with_separator(&assignment_stmt, &var_desc, separator)
 }
@@ -144,7 +144,7 @@ fn generate_anonymous_placeholder_with_separator(
     placeholder_num: usize,
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
-    let assignment_stmt = quote! { *#arg_expr = parsed };  // No trailing semicolon
+    let assignment_stmt = quote! { *#arg_expr = parsed }; // No trailing semicolon
     let var_desc = format!("anonymous placeholder #{placeholder_num}");
     generate_placeholder_with_separator(&assignment_stmt, &var_desc, separator)
 }
@@ -192,7 +192,7 @@ fn generate_final_placeholder(
 /// Note: `assignment_stmt` contains the expression WITHOUT a trailing semicolon.
 fn generate_final_named_placeholder(name: &str) -> proc_macro2::TokenStream {
     let ident = Ident::new(name, Span::call_site());
-    let assignment_stmt = quote! { #ident = parsed };  // No trailing semicolon
+    let assignment_stmt = quote! { #ident = parsed }; // No trailing semicolon
     let var_desc = format!("variable '{name}'");
     generate_final_placeholder(&assignment_stmt, &var_desc)
 }
@@ -204,7 +204,7 @@ fn generate_final_anonymous_placeholder(
     arg_expr: &Expr,
     placeholder_num: usize,
 ) -> proc_macro2::TokenStream {
-    let assignment_stmt = quote! { *#arg_expr = parsed };  // No trailing semicolon
+    let assignment_stmt = quote! { *#arg_expr = parsed }; // No trailing semicolon
     let var_desc = format!("anonymous placeholder #{placeholder_num}");
     generate_final_placeholder(&assignment_stmt, &var_desc)
 }
