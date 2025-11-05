@@ -9,9 +9,32 @@ use crate::validation::is_valid_identifier;
 use proc_macro::TokenStream;
 use syn::LitStr;
 
+/// Push token with `MAX_TOKENS` validation.
+#[inline]
+fn push_token(
+    tokens: &mut Vec<FormatToken>,
+    token: FormatToken,
+    format_lit: &LitStr,
+) -> Result<(), TokenStream> {
+    if tokens.len() >= MAX_TOKENS {
+        return Err(syn::Error::new(
+            format_lit.span(),
+            format!(
+                "Too many tokens (would exceed {}). Maximum: {}. Prevents compile-time DoS.",
+                tokens.len() + 1,
+                MAX_TOKENS
+            ),
+        )
+        .to_compile_error()
+        .into());
+    }
+    tokens.push(token);
+    Ok(())
+}
+
 /// Tokenize format string into text/placeholders. Handles `{{`/`}}` escapes.
 ///
-/// Security: enforces MAX_FORMAT_STRING_LEN, MAX_TOKENS, MAX_IDENTIFIER_LEN limits.
+/// Enforces `MAX_FORMAT_STRING_LEN`, `MAX_TOKENS`, `MAX_IDENTIFIER_LEN` limits.
 pub fn tokenize_format_string(
     format_str: &str,
     format_lit: &LitStr,
@@ -34,25 +57,6 @@ pub fn tokenize_format_string(
     let mut chars = format_str.chars().peekable();
     let mut current_text = String::with_capacity(TEXT_SEGMENT_CAPACITY);
 
-    let push_token =
-        |tokens: &mut Vec<FormatToken>, token: FormatToken| -> Result<(), TokenStream> {
-            if tokens.len() >= MAX_TOKENS {
-                return Err(syn::Error::new(
-                    format_lit.span(),
-                    format!(
-                        "Too many tokens in format string (would exceed {}). Maximum allowed: {}. \
-                     This limit prevents compile-time resource exhaustion.",
-                        tokens.len() + 1,
-                        MAX_TOKENS
-                    ),
-                )
-                .to_compile_error()
-                .into());
-            }
-            tokens.push(token);
-            Ok(())
-        };
-
     while let Some(ch) = chars.next() {
         match ch {
             '{' => {
@@ -66,6 +70,7 @@ pub fn tokenize_format_string(
                     push_token(
                         &mut tokens,
                         FormatToken::Text(std::mem::take(&mut current_text).into_boxed_str()),
+                        format_lit,
                     )?;
                     current_text = String::with_capacity(TEXT_SEGMENT_CAPACITY);
                 }
@@ -80,9 +85,8 @@ pub fn tokenize_format_string(
                         return Err(syn::Error::new(
                             format_lit.span(),
                             format!(
-                                "Identifier in placeholder too long (>{} characters). \
-                                 This limit prevents compile-time DoS attacks.",
-                                MAX_IDENTIFIER_LEN
+                                "Identifier in placeholder too long (>{MAX_IDENTIFIER_LEN} characters). \
+                                 This limit prevents compile-time DoS attacks."
                             ),
                         )
                         .to_compile_error()
@@ -96,21 +100,22 @@ pub fn tokenize_format_string(
                     push_token(
                         &mut tokens,
                         FormatToken::Placeholder(Placeholder::Anonymous),
+                        format_lit,
                     )?;
                 } else if is_valid_identifier(&content) {
                     push_token(
                         &mut tokens,
                         FormatToken::Placeholder(Placeholder::Named(content.into_boxed_str())),
+                        format_lit,
                     )?;
                 } else {
                     return Err(syn::Error::new(
                         format_lit.span(),
                         format!(
-                            "Invalid identifier '{}' in placeholder. \
+                            "Invalid identifier '{content}' in placeholder. \
                              Identifiers must start with a letter or underscore, \
                              contain only alphanumeric characters or underscores, \
-                             and not be Rust keywords. Use '{{}}' for anonymous placeholders.",
-                            content
+                             and not be Rust keywords. Use '{{}}' for anonymous placeholders."
                         ),
                     )
                     .to_compile_error()
@@ -138,6 +143,7 @@ pub fn tokenize_format_string(
         push_token(
             &mut tokens,
             FormatToken::Text(current_text.into_boxed_str()),
+            format_lit,
         )?;
     }
 
