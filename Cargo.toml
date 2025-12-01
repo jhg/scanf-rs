@@ -29,7 +29,7 @@ quote = "1.0"
 syn = { version = "2.0", features = ["derive", "parsing", "proc-macro"] }
 
 [dev-dependencies]
-criterion = "0.7"
+criterion = "0.8"
 
 [[bench]]
 name = "benchmark"
