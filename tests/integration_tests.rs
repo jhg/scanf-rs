@@ -371,3 +371,67 @@ fn test_security_long_but_valid_identifier() {
     sscanf!(input, "{this_is_a_very_long_variable_name_but_still_valid}").unwrap();
     assert_eq!(this_is_a_very_long_variable_name_but_still_valid, 42);
 }
+
+#[test]
+fn test_variable_scope_no_collision_anonymous() {
+    // Test that macro internal variables don't collide with user variables when using anonymous placeholders
+    let input = "test";
+    let mut value: String = String::new();
+    let remaining: String = String::from("should not be modified");
+    let buffer: String = String::from("should not be modified");
+
+    sscanf!(input, "{}", &mut value).unwrap();
+
+    assert_eq!(value, "test");
+    assert_eq!(remaining, "should not be modified");
+    assert_eq!(buffer, "should not be modified");
+}
+
+#[test]
+fn test_only_literal_text_no_placeholders() {
+    // Test format with only literal text (no placeholders)
+    let input = "exact match";
+    let result = sscanf!(input, "exact match");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_only_literal_text_mismatch() {
+    // Test format with only literal text that doesn't match
+    let input = "wrong text";
+    let result = sscanf!(input, "exact match");
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_unicode_separator() {
+    // Test Unicode characters in separators
+    let input = "10→20";
+    let mut a: i32 = 0;
+    let mut b: i32 = 0;
+    sscanf!(input, "{}→{}", &mut a, &mut b).unwrap();
+    assert_eq!(a, 10);
+    assert_eq!(b, 20);
+}
+
+#[test]
+fn test_bool_parsing() {
+    // Test boolean parsing
+    let input = "true false";
+    let mut a: bool = false;
+    let mut b: bool = true;
+    sscanf!(input, "{} {}", &mut a, &mut b).unwrap();
+    assert!(a);
+    assert!(!b);
+}
+
+#[test]
+fn test_char_parsing() {
+    // Test single character parsing
+    let input = "a b";
+    let mut first: char = ' ';
+    let mut second: char = ' ';
+    sscanf!(input, "{} {}", &mut first, &mut second).unwrap();
+    assert_eq!(first, 'a');
+    assert_eq!(second, 'b');
+}

@@ -27,7 +27,7 @@ impl Parse for SscanfArgs {
             Punctuated::parse_terminated(input)?
         };
 
-        Ok(SscanfArgs {
+        Ok(Self {
             input: input_expr,
             format,
             args,
