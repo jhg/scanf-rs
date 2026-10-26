@@ -57,11 +57,7 @@ fn anonymous_target(
         return Ok(quote! { #out });
     }
     let Some(arg_expr) = explicit_args.get(index) else {
-        return Err(make_missing_argument_error(
-            index + 1,
-            is_final,
-            format_lit,
-        ));
+        return Err(make_missing_argument_error(index + 1, is_final, format_lit));
     };
     Ok(quote! { *#arg_expr })
 }
