@@ -483,3 +483,51 @@ fn test_number_whitespace_is_strict_by_default() {
     let mut n: i32 = 0;
     assert!(sscanf!(" 42 ", "{n}").is_err());
 }
+
+#[test]
+fn test_hygiene_named_placeholder_with_internal_names() {
+    // User variables named like macro internals must be assigned, not clobbered.
+    let mut remaining: i32 = 0;
+    let mut parsed: i32 = 0;
+    let mut pos: i32 = 0;
+    let mut slice: i32 = 0;
+    let mut buffer: i32 = 0;
+    sscanf!("1,2,3,4,5", "{remaining},{parsed},{pos},{slice},{buffer}").unwrap();
+    assert_eq!((remaining, parsed, pos, slice, buffer), (1, 2, 3, 4, 5));
+}
+
+#[test]
+fn test_hygiene_anonymous_args_named_like_internals() {
+    let mut remaining: i32 = 0;
+    let mut parsed: i32 = 0;
+    sscanf!("7;8", "{};{}", &mut remaining, &mut parsed).unwrap();
+    assert_eq!((remaining, parsed), (7, 8));
+}
+
+#[test]
+fn test_return_single_value() {
+    let s = "42";
+    let r: i32 = sscanf!(s, "{}").unwrap();
+    assert_eq!(r, 42);
+}
+
+#[test]
+fn test_return_tuple() {
+    let input = "Name: Ana, Age: 30";
+    let (name, age): (String, u32) = sscanf!(input, "Name: {}, Age: {}").unwrap();
+    assert_eq!(name, "Ana");
+    assert_eq!(age, 30);
+}
+
+#[test]
+fn test_return_error_on_invalid_value() {
+    let result: std::io::Result<u32> = sscanf!("abc", "{}");
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_return_mixed_with_named_placeholder() {
+    let mut id: u32 = 0;
+    let (name, score): (String, f64) = sscanf!("7|Ana|9.5", "{id}|{}|{}").unwrap();
+    assert_eq!((id, name.as_str(), score), (7, "Ana", 9.5));
+}

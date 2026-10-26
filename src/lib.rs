@@ -17,6 +17,7 @@
 //! # Limitations
 //!
 //! - Consecutive placeholders `{}{}` not allowed (ambiguous)
+//! - `{}` arguments are all or nothing: one `&mut` per `{}`, or none and get the values back
 //! - Greedy parsing (no backtracking)
 //! - Types must implement `FromStr`
 //! - `scanf!` trims trailing newlines
@@ -39,19 +40,21 @@ mod types;
 mod validation;
 
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::quote_spanned;
 use syn::parse_macro_input;
 
-use codegen::generate_scanf_implementation;
+use codegen::{generate_scanf_implementation, internal_span};
 use parsing::{ScanfArgs, SscanfArgs};
 
 /// Parse a string with a format string, similar to C's `sscanf`.
 ///
 /// Syntax: `sscanf!(input, "format", args...)`
 ///
-/// Placeholders: `{name}` captures to variable, `{}` needs `&mut arg`
+/// Placeholders: `{name}` writes into the variable `name`, and `{}` either takes a
+/// `&mut` argument or, with no arguments at all, is returned. Types must implement `FromStr`.
 ///
-/// Returns `io::Result<()>`. Types must implement `FromStr`.
+/// Returns `io::Result<()>`, or `io::Result<T>` / `io::Result<(T1, T2, ..)>` when the `{}`
+/// placeholders have no arguments and the values come back instead.
 ///
 /// # Examples
 ///
@@ -73,6 +76,13 @@ use parsing::{ScanfArgs, SscanfArgs};
 /// sscanf!(input, "x={x}, y={y}").unwrap();
 /// assert_eq!(x, 10);
 /// assert_eq!(y, 20);
+///
+/// // No arguments: the values are returned, the types come from the annotation
+/// let age: u32 = sscanf!("age=30", "age={}").unwrap();
+/// let (name, score): (String, f64) = sscanf!("Ana: 9.5", "{}: {}").unwrap();
+/// assert_eq!(age, 30);
+/// assert_eq!(name, "Ana");
+/// assert_eq!(score, 9.5);
 /// ```
 #[proc_macro]
 pub fn sscanf(input: TokenStream) -> TokenStream {
@@ -88,11 +98,16 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
     };
 
     // Scope isolation ensures macro hygiene
-    let expanded = quote! {{
-        (|| -> std::io::Result<()> {
-            let mut remaining = #input_expr;
-            #(#generated)*
-            Ok(())
+    let span = internal_span();
+    let declarations = generated.declarations();
+    let statements = &generated.statements;
+    let result = generated.result();
+    let expanded = quote_spanned! {span=> {
+        (|| -> std::io::Result<_> {
+            #declarations
+            let mut remaining: &str = #input_expr;
+            #(#statements)*
+            #result
         })()
     }};
 
@@ -103,7 +118,8 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 ///
 /// Syntax: `scanf!("format", args...)`
 ///
-/// Flushes stdout, reads line, parses (newline trimmed). Returns `io::Result<()>`.
+/// Flushes stdout, reads a line and parses it (newline trimmed). Takes the same arguments as
+/// `sscanf!`, and likewise returns `io::Result<()>` or, without arguments, the parsed values.
 ///
 /// # Examples
 ///
@@ -120,6 +136,9 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 /// let mut score: f64 = 0.0;
 /// print!("Enter name and score: ");
 /// scanf!("{name}: {score}").unwrap();
+///
+/// // Or let it return the value
+/// let height: f64 = scanf!("{}").unwrap();
 /// ```
 #[proc_macro]
 pub fn scanf(input: TokenStream) -> TokenStream {
@@ -133,15 +152,20 @@ pub fn scanf(input: TokenStream) -> TokenStream {
     };
 
     // Scope isolation ensures macro hygiene
-    let expanded = quote! {{
-        (|| -> std::io::Result<()> {
+    let span = internal_span();
+    let declarations = generated.declarations();
+    let statements = &generated.statements;
+    let result = generated.result();
+    let expanded = quote_spanned! {span=> {
+        (|| -> std::io::Result<_> {
+            #declarations
             let mut buffer = String::new();
             let _ = std::io::Write::flush(&mut std::io::stdout());
             std::io::stdin().read_line(&mut buffer)?;
             let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
             let mut remaining: &str = input;
-            #(#generated)*
-            Ok(())
+            #(#statements)*
+            #result
         })()
     }};
     TokenStream::from(expanded)

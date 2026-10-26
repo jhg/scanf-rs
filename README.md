@@ -28,6 +28,28 @@ assert_eq!(number, 5);
 assert_eq!(name, "something");
 ```
 
+### Returning the values
+
+If you don't pass any arguments, `{}` placeholders are returned instead of written into
+variables. You don't have to create the variables first, and the types come from your
+annotations:
+
+```rust
+use scanf::sscanf;
+
+let age: u32 = sscanf!("age=30", "age={}").unwrap();
+assert_eq!(age, 30);
+
+// Several values come back as a tuple
+let (name, score): (String, f64) = sscanf!("Ana: 9.5", "{}: {}").unwrap();
+assert_eq!(name, "Ana");
+assert_eq!(score, 9.5);
+```
+
+It's all or nothing: either every `{}` gets a `&mut` argument, or none does.
+Named placeholders like `{x}` still write into their variable, and they work alongside returned
+values. `scanf!` works the same way.
+
 ### Escape brackets
 
 ```rust
