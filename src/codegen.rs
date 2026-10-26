@@ -87,12 +87,34 @@ fn generate_parsing_code(
     Ok((generated, anon_index))
 }
 
+/// Expression parsing `source`. With the `trim-whitespace` feature, a failed parse is retried
+/// with surrounding whitespace trimmed; without it, input is parsed strictly as-is.
+///
+/// The macro cannot know the target type, so the retry is what keeps `String` (which never
+/// fails to parse) untouched while numbers and other strict types tolerate stray whitespace.
+/// On double failure the error of the first, untrimmed attempt is reported.
+fn parse_with_trim_fallback(source: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    if !cfg!(feature = "trim-whitespace") {
+        return quote! { #source.parse() };
+    }
+    quote! {
+        match #source.parse() {
+            Ok(value) => Ok(value),
+            Err(error) => match #source.trim().parse() {
+                Ok(value) => Ok(value),
+                Err(_) => Err(error),
+            },
+        }
+    }
+}
+
 /// Generate code for placeholder with separator (named or anonymous).
 fn generate_placeholder_with_separator(
     assignment_stmt: &proc_macro2::TokenStream,
     var_desc: &str,
     separator: &LitStr,
 ) -> proc_macro2::TokenStream {
+    let parse_expr = parse_with_trim_fallback(&quote! { slice });
     quote! {
         {
             let pos = remaining.find(#separator).ok_or_else(|| {
@@ -107,7 +129,7 @@ fn generate_placeholder_with_separator(
                 )
             })?;
             let slice = &remaining[..pos];
-            let parsed = slice.parse().map_err(|error| {
+            let parsed = #parse_expr.map_err(|error| {
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!("Failed to parse {} from {:?}: {}", #var_desc, slice, error)
@@ -169,9 +191,10 @@ fn generate_final_placeholder(
     assignment_stmt: &proc_macro2::TokenStream,
     var_desc: &str,
 ) -> proc_macro2::TokenStream {
+    let parse_expr = parse_with_trim_fallback(&quote! { remaining });
     quote! {
         {
-            let parsed = remaining.parse().map_err(|error| {
+            let parsed = #parse_expr.map_err(|error| {
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!("Failed to parse {} from remaining input {:?}: {}", #var_desc, remaining, error)

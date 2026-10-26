@@ -23,6 +23,12 @@ edition = "2024"
 proc-macro = true
 bench = false
 
+[features]
+default = []
+# Retry failed parses with surrounding whitespace trimmed (e.g. `" 42 "` into an integer).
+# Strings are unaffected: they never fail to parse, so they keep their whitespace.
+trim-whitespace = []
+
 [dependencies]
 proc-macro2 = "1.0.107"
 quote = "1.0.47"

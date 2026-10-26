@@ -435,3 +435,51 @@ fn test_char_parsing() {
     assert_eq!(first, 'a');
     assert_eq!(second, 'b');
 }
+
+#[cfg(feature = "trim-whitespace")]
+#[test]
+fn test_number_tolerates_surrounding_whitespace() {
+    let mut n: i32 = 0;
+    sscanf!(" 42 ", "{n}").unwrap();
+    assert_eq!(n, 42);
+}
+
+#[cfg(feature = "trim-whitespace")]
+#[test]
+fn test_numbers_tolerate_repeated_separator_whitespace() {
+    let (mut a, mut b): (u32, f64) = (0, 0.0);
+    sscanf!("1   2.5 ", "{a} {b}").unwrap();
+    assert_eq!(a, 1);
+    assert_eq!(b, 2.5);
+}
+
+#[cfg(feature = "trim-whitespace")]
+#[test]
+fn test_string_keeps_surrounding_whitespace() {
+    let mut s = String::new();
+    let mut n: i32 = 0;
+    sscanf!("  hi  ,  7 ", "{s},{n}").unwrap();
+    assert_eq!(s, "  hi  ");
+    assert_eq!(n, 7);
+}
+
+#[cfg(feature = "trim-whitespace")]
+#[test]
+fn test_invalid_number_with_whitespace_still_fails() {
+    let mut n: i32 = 0;
+    assert!(sscanf!(" 4x ", "{n}").is_err());
+}
+
+#[cfg(feature = "trim-whitespace")]
+#[test]
+fn test_two_numbers_are_not_a_single_number() {
+    let mut n: i32 = 0;
+    assert!(sscanf!("1 2", "{n}").is_err());
+}
+
+#[cfg(not(feature = "trim-whitespace"))]
+#[test]
+fn test_number_whitespace_is_strict_by_default() {
+    let mut n: i32 = 0;
+    assert!(sscanf!(" 42 ", "{n}").is_err());
+}

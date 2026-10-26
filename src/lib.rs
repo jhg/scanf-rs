@@ -20,6 +20,7 @@
 //! - Greedy parsing (no backtracking)
 //! - Types must implement `FromStr`
 //! - `scanf!` trims trailing newlines
+//! - Surrounding whitespace is kept unless the `trim-whitespace` feature is enabled (see README)
 //!
 //! # Security
 //!
