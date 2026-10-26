@@ -17,7 +17,7 @@ pub fn is_valid_identifier(s: &str) -> bool {
     }
 
     let mut chars = s.chars();
-    let first = chars.next().unwrap(); // OK to unwrap: checked is_empty above
+    let first = chars.next().unwrap(); // Safe: is_empty checked above
 
     if !first.is_alphabetic() && first != '_' {
         return false;
