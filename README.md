@@ -6,77 +6,12 @@ string, the inverse of `print!` and `format!`. The crate contains no `unsafe` co
 ## Usage
 
 `sscanf!` parses a string and `scanf!` reads one line from stdin, with the same format syntax.
-Like Rust's `format!`, a `{name}` placeholder captures the variable of that name:
-
-```no_run
-use scanf::scanf;
-
-let mut number: u32 = 0;
-let mut name: String = String::new();
-if scanf!("{number},{name}").is_ok() {
-    println!("Input is: {} and {}", number, name);
-}
-```
-
-```rust
-use scanf::sscanf;
-
-let input: &str = "Candy: 2.75";
-let mut product: String = String::new();
-let mut price: f32 = 0.0;
-
-sscanf!(input, "{product}: {price}").unwrap();
-println!("Price of {} is {:.2}", product, price);
-# assert_eq!(product, "Candy");
-# assert_eq!(price, 2.75);
-```
-
-### Positional arguments
-
-An empty `{}` takes the next `&mut` argument, as in C:
-
-```no_run
-use scanf::scanf;
-
-let mut number: u32 = 0;
-let mut name: String = String::new();
-if scanf!("{},{}", &mut number, &mut name).is_ok() {
-    println!("Input is: {} and {}", number, name);
-}
-```
-
-```rust
-use scanf::sscanf;
-
-let input = "5,something";
-let mut number: u32 = 0;
-let mut name: String = String::new();
-if let Err(error) = sscanf!(input, "{},{}", &mut number, &mut name) {
-    panic!("Error {} using sscanf!", error);
-}
-```
-
-Named and empty placeholders can be mixed:
-
-```rust
-use scanf::sscanf;
-
-let input: &str = "Alice: 25 years";
-let mut name: String = String::new();
-let mut age: i32 = 0;
-let mut unit: String = String::new();
-
-sscanf!(input, "{name}: {} {unit}", &mut age).unwrap();
-assert_eq!(name, "Alice");
-assert_eq!(age, 25);
-assert_eq!(unit, "years");
-```
+There are two ways to get the values out, and both work with either macro.
 
 ### Returning the values
 
-If you don't pass any arguments, `{}` placeholders are returned instead of written into
-variables. You don't have to create the variables first, and the types come from your
-annotations:
+Leave the placeholders empty and the values are returned. The types come from your
+annotations, and you don't have to declare any variable first:
 
 ```rust
 use scanf::sscanf;
@@ -90,9 +25,54 @@ assert_eq!(name, "Ana");
 assert_eq!(score, 9.5);
 ```
 
-It's all or nothing: either every `{}` gets a `&mut` argument, or none does.
-Named placeholders like `{x}` still write into their variable, and they work alongside returned
-values. `scanf!` works the same way.
+The same from stdin:
+
+```no_run
+use scanf::scanf;
+
+let (number, name): (u32, String) = scanf!("{},{}").unwrap();
+println!("Input is: {number} and {name}");
+```
+
+### Named placeholders
+
+Like Rust's `format!`, a `{name}` placeholder refers to the variable of that name, and the
+parsed value is written into it. Use it when the variables already exist, or when the names
+make the format easier to read:
+
+```rust
+use scanf::sscanf;
+
+let input: &str = "Candy: 2.75";
+let mut product: String = String::new();
+let mut price: f32 = 0.0;
+
+sscanf!(input, "{product}: {price}").unwrap();
+println!("Price of {product} is {price:.2}");
+# assert_eq!(product, "Candy");
+# assert_eq!(price, 2.75);
+```
+
+```no_run
+use scanf::scanf;
+
+let mut number: u32 = 0;
+let mut name: String = String::new();
+if scanf!("{number},{name}").is_ok() {
+    println!("Input is: {number} and {name}");
+}
+```
+
+Both ways can be combined. Named placeholders write into their variable, and the empty ones
+are returned:
+
+```rust
+use scanf::sscanf;
+
+let mut id: u32 = 0;
+let (name, score): (String, f64) = sscanf!("7|Ana|9.5", "{id}|{}|{}").unwrap();
+assert_eq!((id, name.as_str(), score), (7, "Ana", 9.5));
+```
 
 ### Escaping braces
 
@@ -108,15 +88,14 @@ assert_eq!(product, "Candy");
 
 Both macros return an `io::Result`. Input that does not match the format is an
 `InvalidInput` error, and `scanf!` fails with `UnexpectedEof` when stdin has no more lines.
-Values parsed before a failure are already written, so check the result before using the
-variables. Mistakes in the format string itself are compile errors.
+With named placeholders, values parsed before a failure are already written, so check the
+result before using the variables. Mistakes in the format string itself are compile errors.
 
 ```rust
 use scanf::sscanf;
 
-let mut number: i32 = 0;
-let error = sscanf!("abc", "{}", &mut number).unwrap_err();
-assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+let result: std::io::Result<i32> = sscanf!("abc", "{}");
+assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidInput);
 ```
 
 ## Limitations
@@ -126,7 +105,9 @@ assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
 - A placeholder followed by text parses up to the first occurrence of that text, with no
   backtracking.
 - Parsed types must implement `FromStr`.
-- Input is a single line. `scanf!` removes one trailing line ending (`\n`, `\r\n` or a lone `\r`). It reads up to the next `\n`, so a stream that separates lines with `\r` alone arrives as one long line.
+- Input is a single line. `scanf!` removes one trailing line ending (`\n`, `\r\n` or a lone
+  `\r`). It reads up to the next `\n`, so a stream that separates lines with `\r` alone arrives
+  as one long line.
 - Input after a trailing literal in the format is not checked: `"{} units"` accepts
   `"5 units extra"`.
 - Format strings are limited to 10,000 bytes, 256 tokens (text segments and placeholders)

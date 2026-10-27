@@ -15,44 +15,35 @@ use parsing::{ScanfArgs, SscanfArgs};
 
 /// Parse a string with a format string, similar to C's `sscanf`.
 ///
-/// Syntax: `sscanf!(input, "format", args...)`
+/// Syntax: `sscanf!(input, "format")`
 ///
-/// Placeholders: `{name}` writes into the variable `name`, and `{}` either takes a
-/// `&mut` argument or, with no arguments at all, is returned. Types must implement `FromStr`.
+/// Placeholders: `{}` is returned, and `{name}` is written into the variable `name`. Types
+/// must implement `FromStr`.
 ///
-/// Returns `io::Result<()>`, or `io::Result<T>` / `io::Result<(T1, T2, ..)>` when the `{}`
-/// placeholders have no arguments and the values come back instead.
+/// Returns `io::Result<T>` or `io::Result<(T1, T2, ..)>` with the values of the `{}`
+/// placeholders, or `io::Result<()>` when the format has only named ones.
 ///
 /// # Examples
 ///
 /// ```
 /// use scanf::sscanf;
 ///
-/// // Anonymous placeholders
-/// let input = "42: hello";
-/// let mut num: i32 = 0;
-/// let mut text: String = String::new();
-/// sscanf!(input, "{}: {}", &mut num, &mut text).unwrap();
-/// assert_eq!(num, 42);
-/// assert_eq!(text, "hello");
-///
-/// // Named placeholders
-/// let input = "x=10, y=20";
-/// let mut x: i32 = 0;
-/// let mut y: i32 = 0;
-/// sscanf!(input, "x={x}, y={y}").unwrap();
-/// assert_eq!(x, 10);
-/// assert_eq!(y, 20);
-///
-/// // No arguments: the values are returned, the types come from the annotation
+/// // Returned values: the types come from the annotation
 /// let age: u32 = sscanf!("age=30", "age={}").unwrap();
 /// let (name, score): (String, f64) = sscanf!("Ana: 9.5", "{}: {}").unwrap();
 /// assert_eq!(age, 30);
 /// assert_eq!(name, "Ana");
 /// assert_eq!(score, 9.5);
 ///
-/// // A failed parse is an `InvalidInput` error. Values parsed before the failure are
-/// // already written, so check the result before using the variables.
+/// // Named placeholders: written into the variables of the same name
+/// let mut x: i32 = 0;
+/// let mut y: i32 = 0;
+/// sscanf!("x=10, y=20", "x={x}, y={y}").unwrap();
+/// assert_eq!(x, 10);
+/// assert_eq!(y, 20);
+///
+/// // A failed parse is an `InvalidInput` error. With named placeholders, values parsed
+/// // before the failure are already written, so check the result before using them.
 /// let (mut a, mut b): (i32, i32) = (0, 0);
 /// let error = sscanf!("7,x", "{a},{b}").unwrap_err();
 /// assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
@@ -67,30 +58,26 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 
 /// Read from stdin and parse with a format string, similar to C's `scanf`.
 ///
-/// Syntax: `scanf!("format", args...)`
+/// Syntax: `scanf!("format")`
 ///
 /// Flushes stdout, reads a line and parses it (the line ending is removed). Fails with
-/// `UnexpectedEof` when stdin has no more input. Takes the same arguments as
-/// `sscanf!`, and likewise returns `io::Result<()>` or, without arguments, the parsed values.
+/// `UnexpectedEof` when stdin has no more input. The format works as in `sscanf!`, and the
+/// result is the same: the values of the `{}` placeholders, or `()` for named ones.
 ///
 /// # Examples
 ///
 /// ```no_run
 /// use scanf::scanf;
 ///
-/// // Read a number
-/// let mut age: i32 = 0;
+/// // Returned values
 /// print!("Enter your age: ");
-/// scanf!("{}", &mut age).unwrap();
+/// let age: u32 = scanf!("{}").unwrap();
+/// let (name, score): (String, f64) = scanf!("{}: {}").unwrap();
 ///
 /// // Named placeholders
-/// let mut name: String = String::new();
-/// let mut score: f64 = 0.0;
-/// print!("Enter name and score: ");
-/// scanf!("{name}: {score}").unwrap();
-///
-/// // Or let it return the value
-/// let height: f64 = scanf!("{}").unwrap();
+/// let mut city = String::new();
+/// let mut population: u64 = 0;
+/// scanf!("{city}: {population}").unwrap();
 /// ```
 #[proc_macro]
 pub fn scanf(input: TokenStream) -> TokenStream {

@@ -274,7 +274,7 @@ fn missing_argument_error(position: usize, is_final: bool, format_lit: &LitStr) 
         format_lit,
         format!(
             "{prefix}anonymous placeholder '{{}}' at position {position} has no corresponding argument. \
-             Provide a mutable reference argument for every '{{}}' (e.g., &mut var), none at all to get the values returned, or use a named placeholder (e.g., '{{var}}')"
+             Pass no arguments to get the values returned, use a named placeholder (e.g., '{{var}}'), or provide a mutable reference for every '{{}}' (e.g., &mut var)"
         ),
     )
 }
