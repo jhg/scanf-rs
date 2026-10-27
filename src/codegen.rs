@@ -49,6 +49,7 @@ struct Target {
 
 impl Target {
     fn named(name: &str) -> Self {
+        // The caller's own variable, so it keeps the call-site span instead of the hygienic one.
         let ident = Ident::new(name, Span::call_site());
         Self {
             tokens: quote! { #ident },
