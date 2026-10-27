@@ -6,7 +6,8 @@ use crate::constants::{
 };
 use crate::types::{FormatToken, Placeholder};
 use crate::validation::is_valid_identifier;
-use proc_macro::TokenStream;
+use std::iter::Peekable;
+use std::str::Chars;
 use syn::LitStr;
 
 /// Push token with `MAX_TOKENS` validation.
@@ -15,7 +16,7 @@ fn push_token(
     tokens: &mut Vec<FormatToken>,
     token: FormatToken,
     format_lit: &LitStr,
-) -> Result<(), TokenStream> {
+) -> syn::Result<()> {
     if tokens.len() >= MAX_TOKENS {
         return Err(syn::Error::new(
             format_lit.span(),
@@ -24,12 +25,63 @@ fn push_token(
                 tokens.len() + 1,
                 MAX_TOKENS
             ),
-        )
-        .to_compile_error()
-        .into());
+        ));
     }
     tokens.push(token);
     Ok(())
+}
+
+/// Push the pending literal text as a token, if there is any.
+fn flush_text(
+    tokens: &mut Vec<FormatToken>,
+    text: &mut String,
+    format_lit: &LitStr,
+) -> syn::Result<()> {
+    if text.is_empty() {
+        return Ok(());
+    }
+    let text = std::mem::replace(text, String::with_capacity(TEXT_SEGMENT_CAPACITY));
+    push_token(tokens, FormatToken::Text(text.into_boxed_str()), format_lit)
+}
+
+/// Read the placeholder body after `{` up to (and consuming) the closing `}`.
+fn read_placeholder_body(chars: &mut Peekable<Chars>, format_lit: &LitStr) -> syn::Result<String> {
+    let mut content = String::with_capacity(IDENTIFIER_CAPACITY);
+    for ch in chars.by_ref() {
+        if ch == '}' {
+            break;
+        }
+        if content.len() >= MAX_IDENTIFIER_LEN {
+            return Err(syn::Error::new(
+                format_lit.span(),
+                format!(
+                    "Identifier in placeholder too long (>{MAX_IDENTIFIER_LEN} characters). \
+                     This limit prevents compile-time DoS attacks."
+                ),
+            ));
+        }
+        content.push(ch);
+    }
+    Ok(content)
+}
+
+/// `{}` is anonymous, `{name}` is named; anything else is an error.
+fn classify_placeholder(content: String, format_lit: &LitStr) -> syn::Result<Placeholder> {
+    if content.is_empty() {
+        Ok(Placeholder::Anonymous)
+    } else if is_valid_identifier(&content) {
+        Ok(Placeholder::Named(content.into_boxed_str()))
+    } else {
+        Err(syn::Error::new(
+            format_lit.span(),
+            format!(
+                "Invalid identifier '{content}' in placeholder. \
+                 Identifiers must start with a letter or underscore, \
+                 contain only alphanumeric characters or underscores, \
+                 and not be Rust keywords. Use '{{}}' for anonymous placeholders."
+            ),
+        ))
+    }
 }
 
 /// Tokenize format string into text/placeholders. Handles `{{`/`}}` escapes.
@@ -38,7 +90,7 @@ fn push_token(
 pub fn tokenize_format_string(
     format_str: &str,
     format_lit: &LitStr,
-) -> Result<Vec<FormatToken>, TokenStream> {
+) -> syn::Result<Vec<FormatToken>> {
     if format_str.len() > MAX_FORMAT_STRING_LEN {
         return Err(syn::Error::new(
             format_lit.span(),
@@ -48,9 +100,7 @@ pub fn tokenize_format_string(
                 format_str.len(),
                 MAX_FORMAT_STRING_LEN
             ),
-        )
-        .to_compile_error()
-        .into());
+        ));
     }
 
     let mut tokens: Vec<FormatToken> = Vec::with_capacity(TOKENS_INITIAL_CAPACITY);
@@ -59,94 +109,29 @@ pub fn tokenize_format_string(
 
     while let Some(ch) = chars.next() {
         match ch {
+            '{' if chars.next_if_eq(&'{').is_some() => current_text.push('{'),
             '{' => {
-                if chars.peek() == Some(&'{') {
-                    chars.next();
-                    current_text.push('{');
-                    continue;
-                }
-
-                if !current_text.is_empty() {
-                    push_token(
-                        &mut tokens,
-                        FormatToken::Text(std::mem::take(&mut current_text).into_boxed_str()),
-                        format_lit,
-                    )?;
-                    current_text = String::with_capacity(TEXT_SEGMENT_CAPACITY);
-                }
-
-                let mut content = String::with_capacity(IDENTIFIER_CAPACITY);
-                for c2 in chars.by_ref() {
-                    if c2 == '}' {
-                        break;
-                    }
-
-                    if content.len() >= MAX_IDENTIFIER_LEN {
-                        return Err(syn::Error::new(
-                            format_lit.span(),
-                            format!(
-                                "Identifier in placeholder too long (>{MAX_IDENTIFIER_LEN} characters). \
-                                 This limit prevents compile-time DoS attacks."
-                            ),
-                        )
-                        .to_compile_error()
-                        .into());
-                    }
-
-                    content.push(c2);
-                }
-
-                if content.is_empty() {
-                    push_token(
-                        &mut tokens,
-                        FormatToken::Placeholder(Placeholder::Anonymous),
-                        format_lit,
-                    )?;
-                } else if is_valid_identifier(&content) {
-                    push_token(
-                        &mut tokens,
-                        FormatToken::Placeholder(Placeholder::Named(content.into_boxed_str())),
-                        format_lit,
-                    )?;
-                } else {
-                    return Err(syn::Error::new(
-                        format_lit.span(),
-                        format!(
-                            "Invalid identifier '{content}' in placeholder. \
-                             Identifiers must start with a letter or underscore, \
-                             contain only alphanumeric characters or underscores, \
-                             and not be Rust keywords. Use '{{}}' for anonymous placeholders."
-                        ),
-                    )
-                    .to_compile_error()
-                    .into());
-                }
+                flush_text(&mut tokens, &mut current_text, format_lit)?;
+                let content = read_placeholder_body(&mut chars, format_lit)?;
+                let placeholder = classify_placeholder(content, format_lit)?;
+                push_token(
+                    &mut tokens,
+                    FormatToken::Placeholder(placeholder),
+                    format_lit,
+                )?;
             }
+            '}' if chars.next_if_eq(&'}').is_some() => current_text.push('}'),
             '}' => {
-                if chars.peek() == Some(&'}') {
-                    chars.next();
-                    current_text.push('}');
-                } else {
-                    return Err(syn::Error::new(
-                        format_lit.span(),
-                        "Unescaped '}' in format string. Use '}}' to escape it.",
-                    )
-                    .to_compile_error()
-                    .into());
-                }
+                return Err(syn::Error::new(
+                    format_lit.span(),
+                    "Unescaped '}' in format string. Use '}}' to escape it.",
+                ));
             }
             other => current_text.push(other),
         }
     }
 
-    if !current_text.is_empty() {
-        push_token(
-            &mut tokens,
-            FormatToken::Text(current_text.into_boxed_str()),
-            format_lit,
-        )?;
-    }
-
+    flush_text(&mut tokens, &mut current_text, format_lit)?;
     Ok(tokens)
 }
 
@@ -155,19 +140,9 @@ mod tests {
     use super::*;
     use syn::LitStr;
 
-    // NOTE: Error path tests (exceeding limits) cannot be tested in unit tests because
-    // tokenize_format_string returns Result<Vec<FormatToken>, TokenStream>, and TokenStream
-    // can only be used during macro expansion. These cases are covered by integration tests
-    // that actually try to compile code with the scanf! macro.
-    //
-    // REGRESSION PROTECTION: The security fix for MAX_TOKENS bypass (where only text tokens
-    // were checked, allowing placeholders to bypass the limit) is protected by the test below
-    // which verifies the boundary case works correctly. Any regression would cause this test
-    // to fail as it would reject valid input.
-
     #[test]
     fn test_max_tokens_at_boundary() {
-        // REGRESSION TEST: Verify exactly MAX_TOKENS (256) works correctly
+        // Exactly MAX_TOKENS (256) works correctly
         // This test ensures that BOTH text and placeholder tokens count toward the limit.
         // If placeholders don't count (the vulnerability), this would fail.
         let format_lit: LitStr = syn::parse_quote!("{}");

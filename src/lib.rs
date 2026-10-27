@@ -3,16 +3,11 @@
 //! - `scanf!`: Read and parse from stdin
 //! - `sscanf!`: Parse from string
 //!
-//! # Architecture
+//! # How it works
 //!
-//! Compile-time: `tokenization` → `codegen` → expansion
-//! Runtime: Generated code uses `.find()` and `.parse()`
-//!
-//! Modules: `constants`, `types`, `validation`, `parsing`, `tokenization`, `codegen`
-//!
-//! # Hygiene
-//!
-//! Generated code uses isolated scopes - no variable pollution.
+//! The format string is tokenized at compile time, and each piece becomes a small parsing
+//! step built on `find` and `parse`. Internal variables are hygienic, so they never clash
+//! with yours.
 //!
 //! # Limitations
 //!
@@ -26,7 +21,7 @@
 //! # Security
 //!
 //! **`DoS` limits:** 10K bytes format, 256 tokens, 128 char identifiers
-//! **Memory:** `#![forbid(unsafe_code)]`, `Box<str>`, bounds-checked
+//! **Memory:** `#![forbid(unsafe_code)]`
 //! **Validation:** Rejects empty formats, keywords, invalid identifiers
 
 #![forbid(unsafe_code)]
@@ -43,7 +38,7 @@ use proc_macro::TokenStream;
 use quote::quote_spanned;
 use syn::parse_macro_input;
 
-use codegen::{generate_scanf_implementation, internal_span};
+use codegen::{expand, internal_span};
 use parsing::{ScanfArgs, SscanfArgs};
 
 /// Parse a string with a format string, similar to C's `sscanf`.
@@ -89,29 +84,8 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(input as SscanfArgs);
 
     let input_expr = &args.input;
-    let format_lit = &args.format;
-    let explicit_args: Vec<_> = args.args.iter().collect();
-
-    let generated = match generate_scanf_implementation(format_lit, &explicit_args) {
-        Ok(code) => code,
-        Err(err) => return err,
-    };
-
-    // Scope isolation ensures macro hygiene
-    let span = internal_span();
-    let declarations = generated.declarations();
-    let statements = &generated.statements;
-    let result = generated.result();
-    let expanded = quote_spanned! {span=> {
-        (|| -> std::io::Result<_> {
-            #declarations
-            let mut remaining: &str = #input_expr;
-            #(#statements)*
-            #result
-        })()
-    }};
-
-    TokenStream::from(expanded)
+    let prelude = quote_spanned! {internal_span()=> let mut remaining: &str = #input_expr; };
+    expand(&args.format, &args.args, prelude)
 }
 
 /// Read from stdin and parse with a format string, similar to C's `scanf`.
@@ -143,30 +117,11 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn scanf(input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(input as ScanfArgs);
-    let format_lit = &args.format;
-    let explicit_args: Vec<_> = args.args.iter().collect();
-
-    let generated = match generate_scanf_implementation(format_lit, &explicit_args) {
-        Ok(code) => code,
-        Err(err) => return err,
+    let prelude = quote_spanned! {internal_span()=>
+        let mut buffer = String::new();
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+        std::io::stdin().read_line(&mut buffer)?;
+        let mut remaining: &str = buffer.trim_end_matches('\n').trim_end_matches('\r');
     };
-
-    // Scope isolation ensures macro hygiene
-    let span = internal_span();
-    let declarations = generated.declarations();
-    let statements = &generated.statements;
-    let result = generated.result();
-    let expanded = quote_spanned! {span=> {
-        (|| -> std::io::Result<_> {
-            #declarations
-            let mut buffer = String::new();
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            std::io::stdin().read_line(&mut buffer)?;
-            let input = buffer.trim_end_matches('\n').trim_end_matches('\r');
-            let mut remaining: &str = input;
-            #(#statements)*
-            #result
-        })()
-    }};
-    TokenStream::from(expanded)
+    expand(&args.format, &args.args, prelude)
 }

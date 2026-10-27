@@ -10,20 +10,14 @@ const RUST_KEYWORDS: &[&str] = &[
 ];
 
 /// Check if string is valid Rust identifier.
-#[inline]
 pub fn is_valid_identifier(s: &str) -> bool {
-    if s.is_empty() || RUST_KEYWORDS.contains(&s) {
+    if RUST_KEYWORDS.contains(&s) {
         return false;
     }
 
     let mut chars = s.chars();
-    let first = chars.next().unwrap(); // Safe: is_empty checked above
-
-    if !first.is_alphabetic() && first != '_' {
-        return false;
-    }
-
-    chars.all(|c| c.is_alphanumeric() || c == '_')
+    matches!(chars.next(), Some(c) if c.is_alphabetic() || c == '_')
+        && chars.all(|c| c.is_alphanumeric() || c == '_')
 }
 
 #[cfg(test)]

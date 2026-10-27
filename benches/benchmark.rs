@@ -216,6 +216,32 @@ fn sscanf_benchmark(c: &mut Criterion) {
             black_box(second_number);
         })
     });
+
+    let input = black_box("id=42;name=Candy;price=2.75");
+    c.bench_function("Sscanf literal text around 3 placeholders", |b| {
+        b.iter(|| {
+            let mut id: u32 = 0;
+            let mut name: String = String::new();
+            let mut price: f64 = 0.0;
+            sscanf!(
+                input,
+                "id={};name={};price={}",
+                &mut id,
+                &mut name,
+                &mut price
+            );
+            black_box((id, &name, price));
+        })
+    });
+
+    let input = black_box("12:34:56");
+    c.bench_function("Sscanf colon separated u8 x3", |b| {
+        b.iter(|| {
+            let (mut h, mut m, mut s) = (0u8, 0u8, 0u8);
+            sscanf!(input, "{}:{}:{}", &mut h, &mut m, &mut s);
+            black_box((h, m, s));
+        })
+    });
 }
 
 criterion_group!(benches, sscanf_benchmark);
