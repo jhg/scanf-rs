@@ -16,7 +16,6 @@ fn parse_optional_args(input: ParseStream) -> syn::Result<Punctuated<Expr, Comma
     Punctuated::parse_terminated(input)
 }
 
-/// sscanf! arguments: input, format, args
 pub struct SscanfArgs {
     pub input: Expr,
     pub format: LitStr,
@@ -39,7 +38,6 @@ impl Parse for SscanfArgs {
     }
 }
 
-/// scanf! arguments: format, args
 pub struct ScanfArgs {
     pub format: LitStr,
     pub args: Punctuated<Expr, Comma>,

@@ -2,7 +2,7 @@
 name = "scanf"
 description = "Parse text inputs (inverse of print! and format!)"
 version = "2.2.0"
-keywords = ["scanf", "sscanf", "stdin", "input", "format"]
+keywords = ["scanf", "sscanf", "parsing", "macro", "format"]
 categories = ["parsing", "text-processing"]
 readme = "README.md"
 license = "Unlicense"
@@ -14,10 +14,10 @@ exclude = [
     ".idea/**",
     "benches/**",
     "Cargo.lock",
-    "LICENSE",
     ".gitignore",
 ]
 edition = "2024"
+rust-version = "1.85"
 
 [lib]
 proc-macro = true
@@ -37,6 +37,10 @@ syn = { version = "3.0.9", features = ["derive", "parsing", "proc-macro"] }
 [dev-dependencies]
 criterion = "0.8.2"
 
+[[test]]
+name = "stdin"
+harness = false
+
 [[bench]]
 name = "benchmark"
 harness = false
@@ -51,3 +55,9 @@ debug-assertions = false
 codegen-units = 1
 incremental = false
 overflow-checks = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

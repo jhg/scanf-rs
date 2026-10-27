@@ -31,6 +31,8 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Check
         run: cargo check
+      - name: Check benches and examples
+        run: cargo check --benches --examples
 
   tests:
     strategy:

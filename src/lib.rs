@@ -1,44 +1,16 @@
-//! C-style scanf/sscanf procedural macros for text parsing.
-//!
-//! - `scanf!`: Read and parse from stdin
-//! - `sscanf!`: Parse from string
-//!
-//! # How it works
-//!
-//! The format string is tokenized at compile time, and each piece becomes a small parsing
-//! step built on `find` and `parse`. Internal variables are hygienic, so they never clash
-//! with yours.
-//!
-//! # Limitations
-//!
-//! - Consecutive placeholders `{}{}` not allowed (ambiguous)
-//! - `{}` arguments are all or nothing: one `&mut` per `{}`, or none and get the values back
-//! - Greedy parsing (no backtracking)
-//! - Types must implement `FromStr`
-//! - `scanf!` trims trailing newlines
-//! - Surrounding whitespace is kept unless the `trim-whitespace` feature is enabled (see README)
-//!
-//! # Security
-//!
-//! **`DoS` limits:** 10K bytes format, 256 tokens, 128 char identifiers
-//! **Memory:** `#![forbid(unsafe_code)]`
-//! **Validation:** Rejects empty formats, keywords, invalid identifiers
-
 #![forbid(unsafe_code)]
 #![doc = include_str!("../README.md")]
 
 mod codegen;
-mod constants;
 mod parsing;
 mod tokenization;
 mod types;
 mod validation;
 
 use proc_macro::TokenStream;
-use quote::quote_spanned;
 use syn::parse_macro_input;
 
-use codegen::{expand, internal_span};
+use codegen::{Source, expand};
 use parsing::{ScanfArgs, SscanfArgs};
 
 /// Parse a string with a format string, similar to C's `sscanf`.
@@ -78,21 +50,27 @@ use parsing::{ScanfArgs, SscanfArgs};
 /// assert_eq!(age, 30);
 /// assert_eq!(name, "Ana");
 /// assert_eq!(score, 9.5);
+///
+/// // A failed parse is an `InvalidInput` error. Values parsed before the failure are
+/// // already written, so check the result before using the variables.
+/// let (mut a, mut b): (i32, i32) = (0, 0);
+/// let error = sscanf!("7,x", "{a},{b}").unwrap_err();
+/// assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+/// assert_eq!((a, b), (7, 0));
 /// ```
 #[proc_macro]
 pub fn sscanf(input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(input as SscanfArgs);
 
-    let input_expr = &args.input;
-    let prelude = quote_spanned! {internal_span()=> let mut remaining: &str = #input_expr; };
-    expand(&args.format, &args.args, prelude)
+    expand(&args.format, &args.args, &Source::Expression(&args.input))
 }
 
 /// Read from stdin and parse with a format string, similar to C's `scanf`.
 ///
 /// Syntax: `scanf!("format", args...)`
 ///
-/// Flushes stdout, reads a line and parses it (newline trimmed). Takes the same arguments as
+/// Flushes stdout, reads a line and parses it (the line ending is removed). Fails with
+/// `UnexpectedEof` when stdin has no more input. Takes the same arguments as
 /// `sscanf!`, and likewise returns `io::Result<()>` or, without arguments, the parsed values.
 ///
 /// # Examples
@@ -117,11 +95,119 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn scanf(input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(input as ScanfArgs);
-    let prelude = quote_spanned! {internal_span()=>
-        let mut buffer = String::new();
-        let _ = std::io::Write::flush(&mut std::io::stdout());
-        std::io::stdin().read_line(&mut buffer)?;
-        let mut remaining: &str = buffer.trim_end_matches('\n').trim_end_matches('\r');
-    };
-    expand(&args.format, &args.args, prelude)
+    expand(&args.format, &args.args, &Source::Stdin)
+}
+
+/// Misuse that must not compile. Each case is a doctest, so it runs under `cargo test --doc`;
+/// the wording of the messages is covered by the unit tests instead.
+#[cfg(doctest)]
+mod compile_failures {
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// sscanf!("5", "");
+    /// ```
+    fn empty_format() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// let mut b: i32 = 0;
+    /// sscanf!("12", "{}{}", &mut a, &mut b);
+    /// ```
+    fn consecutive_placeholders() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// sscanf!("5", "a}b", &mut a);
+    /// ```
+    fn unescaped_closing_brace() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// sscanf!("5", "{", &mut a);
+    /// ```
+    fn unclosed_placeholder() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// sscanf!("5", "{1x}");
+    /// ```
+    fn identifier_starting_with_a_digit() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// sscanf!("5", "{let}");
+    /// ```
+    fn keyword_as_identifier() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// sscanf!("5", "{_}");
+    /// ```
+    fn lone_underscore_as_identifier() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// sscanf!("5", "{x²}");
+    /// ```
+    fn identifier_with_a_non_identifier_character() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// sscanf!("1,2", "{},{}", &mut a);
+    /// ```
+    fn too_few_arguments() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// let mut b: i32 = 0;
+    /// sscanf!("1", "{}", &mut a, &mut b);
+    /// ```
+    fn too_many_arguments() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// let format = "{}";
+    /// sscanf!("5", format, &mut a);
+    /// ```
+    fn format_that_is_not_a_literal() {}
+
+    /// ```compile_fail
+    /// use scanf::sscanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// sscanf!("5" "{}", &mut a);
+    /// ```
+    fn missing_comma_after_the_input() {}
+
+    /// ```compile_fail,E0425
+    /// use scanf::sscanf;
+    ///
+    /// sscanf!("5", "{missing}");
+    /// ```
+    fn undeclared_named_variable() {}
+
+    /// ```compile_fail,E0614
+    /// use scanf::sscanf;
+    ///
+    /// let a: i32 = 0;
+    /// sscanf!("5", "{}", a);
+    /// ```
+    fn argument_that_cannot_be_dereferenced() {}
 }
