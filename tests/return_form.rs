@@ -312,6 +312,16 @@ mod failures {
     }
 
     #[test]
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn text_after_the_last_literal_is_invalid_input() {
+        let result: std::io::Result<i32> = sscanf!("5 units extra", "{} units");
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("\" extra\""), "{message}");
+        let pair: std::io::Result<(i32, i32)> = sscanf!("1,2]]", "[{},{}]");
+        assert!(pair.is_err());
+    }
+
+    #[test]
     fn the_message_names_the_placeholder_and_the_text() {
         let result: std::io::Result<(i32, i32)> = sscanf!("1,y", "{},{}");
         let message = result.unwrap_err().to_string();
@@ -340,5 +350,18 @@ mod with_trim_whitespace {
     fn two_numbers_are_still_not_one_number() {
         let result: std::io::Result<i32> = sscanf!("1 2", "{}");
         assert!(result.is_err());
+    }
+}
+
+#[cfg(feature = "ignore-trailing-input")]
+mod with_ignore_trailing_input {
+    use super::*;
+
+    #[test]
+    fn the_values_come_back_and_the_leftover_is_ignored() {
+        let n: i32 = sscanf!("5 units extra", "{} units").unwrap();
+        assert_eq!(n, 5);
+        let (a, b): (i32, i32) = sscanf!("[1,2]]", "[{},{}]").unwrap();
+        assert_eq!((a, b), (1, 2));
     }
 }

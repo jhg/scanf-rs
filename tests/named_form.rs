@@ -295,10 +295,26 @@ mod failures {
     }
 
     #[test]
-    fn values_before_the_failure_are_written_and_later_ones_are_not() {
-        let (mut a, mut b, mut c): (i32, i32, i32) = (0, 0, 0);
+    fn a_failure_writes_nothing() {
+        let (mut a, mut b, mut c): (i32, i32, i32) = (9, 9, 9);
         assert!(sscanf!("1,x,3", "{a},{b},{c}").is_err());
-        assert_eq!((a, b, c), (1, 0, 0));
+        assert_eq!((a, b, c), (9, 9, 9));
+    }
+
+    #[test]
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn text_after_the_last_literal_is_an_error() {
+        let mut n: i32 = 0;
+        assert!(sscanf!("5 units extra", "{n} units").is_err());
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn a_failure_in_the_trailing_text_writes_nothing() {
+        let (mut a, mut b, mut c): (i32, i32, i32) = (9, 9, 9);
+        assert!(sscanf!("1,2,3 extra", "{a},{b},{c} end").is_err());
+        assert_eq!((a, b, c), (9, 9, 9));
     }
 
     #[test]
@@ -326,4 +342,12 @@ mod with_trim_whitespace {
         let mut n: i32 = 0;
         assert!(sscanf!("1 2", "{n}").is_err());
     }
+}
+
+#[cfg(feature = "ignore-trailing-input")]
+#[test]
+fn ignore_trailing_input_keeps_the_values() {
+    let mut n: i32 = 0;
+    sscanf!("5 units extra", "{n} units").unwrap();
+    assert_eq!(n, 5);
 }

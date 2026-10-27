@@ -28,6 +28,9 @@ default = []
 # Retry failed parses with surrounding whitespace trimmed (e.g. `" 42 "` into an integer).
 # Strings are unaffected: they never fail to parse, so they keep their whitespace.
 trim-whitespace = []
+# Ignore input left over after the last literal text of the format (`"{} units"` accepts
+# `"5 units extra"`). By default that input is an error.
+ignore-trailing-input = []
 
 [dependencies]
 proc-macro2 = "1.0.107"

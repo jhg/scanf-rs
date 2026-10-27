@@ -18,51 +18,58 @@ fn internal_span() -> Span {
 struct Generated {
     /// One statement per format token, in order.
     statements: Vec<TokenStream2>,
+    /// Locals that receive each placeholder's parsed value, in order. Nothing is written to
+    /// the caller's variables until every placeholder has parsed, so a failure writes nothing.
+    values: Vec<Ident>,
+    /// `target = value;` for each placeholder, run once all of them have parsed. Empty in
+    /// return mode, where the values themselves are the result.
+    assignments: Vec<TokenStream2>,
     /// Values returned by the macro, one per anonymous placeholder. Empty unless the format
     /// has anonymous placeholders and no explicit arguments (return mode).
     outputs: Vec<Ident>,
+    /// The format ends with literal text, so no input may be left after it (unless the
+    /// `ignore-trailing-input` feature is on).
+    must_end: bool,
 }
 
 impl Generated {
-    /// `let out0; let out1; ...`: declarations the placeholders assign to later.
+    /// `let value0; let value1; ...`: declarations the placeholders assign to later.
     fn declarations(&self) -> TokenStream2 {
-        let outputs = &self.outputs;
-        quote! { #(let #outputs;)* }
+        let values = &self.values;
+        quote! { #(let #values;)* }
     }
 
-    /// Final `Ok(..)`: `()` without outputs, the value for one, a tuple for several.
-    fn result(&self) -> TokenStream2 {
+    /// What runs after every placeholder has parsed: the end-of-input check, the writes into
+    /// the caller's variables and the final `Ok(..)` (`()` without outputs, the value for one,
+    /// a tuple for several).
+    fn finish(&self) -> TokenStream2 {
+        let span = internal_span();
+        let trailing_input = invalid_input(quote_spanned! {span=>
+            ::std::format!("Unexpected input after the end of the format: {:?}", remaining)
+        });
+        let check = self.must_end.then(|| {
+            quote_spanned! {span=>
+                if !remaining.is_empty() {
+                    return ::core::result::Result::Err(#trailing_input);
+                }
+            }
+        });
+        let assignments = &self.assignments;
         let outputs = &self.outputs;
-        match outputs.len() {
+        let result = match outputs.len() {
             0 => quote! { ::core::result::Result::Ok(()) },
             1 => quote! { ::core::result::Result::Ok(#(#outputs)*) },
             _ => quote! { ::core::result::Result::Ok((#(#outputs),*)) },
-        }
+        };
+        quote! { #check #(#assignments)* #result }
     }
 }
 
-/// Place a placeholder assigns its parsed value to, and how error messages call it.
+/// Where a placeholder's parsed value is kept until all of them are known, and how error
+/// messages call the placeholder.
 struct Target {
-    tokens: TokenStream2,
+    value: Ident,
     description: String,
-}
-
-impl Target {
-    fn named(name: &str) -> Self {
-        // The caller's own variable, so it keeps the call-site span instead of the hygienic one.
-        let ident = Ident::new(name, Span::call_site());
-        Self {
-            tokens: quote! { #ident },
-            description: format!("variable '{name}'"),
-        }
-    }
-
-    fn anonymous(tokens: TokenStream2, number: usize) -> Self {
-        Self {
-            tokens,
-            description: format!("anonymous placeholder #{number}"),
-        }
-    }
 }
 
 /// Decides where each placeholder's parsed value goes and builds its statement.
@@ -71,6 +78,8 @@ struct TargetResolver<'a> {
     format_lit: &'a LitStr,
     /// Anonymous placeholders produce values instead of writing through explicit arguments.
     return_mode: bool,
+    values: Vec<Ident>,
+    assignments: Vec<TokenStream2>,
     outputs: Vec<Ident>,
     anonymous_count: usize,
 }
@@ -83,32 +92,50 @@ impl TargetResolver<'_> {
         placeholder: &Placeholder,
         separator: Option<&LitStr>,
     ) -> syn::Result<TokenStream2> {
-        let target = match placeholder {
-            Placeholder::Named(name) => Target::named(name),
-            Placeholder::Anonymous => self.anonymous_target(separator.is_none())?,
+        let value = Ident::new(&format!("value{}", self.values.len()), internal_span());
+        let (destination, description) = match placeholder {
+            Placeholder::Named(name) => {
+                // The caller's own variable, so it keeps the call-site span instead of the
+                // hygienic one.
+                let ident = Ident::new(name, Span::call_site());
+                (Some(quote! { #ident }), format!("variable '{name}'"))
+            }
+            Placeholder::Anonymous => self.anonymous_destination(&value, separator.is_none())?,
         };
+        if let Some(destination) = destination {
+            self.assignments.push(quote! { #destination = #value; });
+        }
+        self.values.push(value.clone());
+        let target = Target { value, description };
         Ok(match separator {
             Some(separator) => separated_placeholder_statement(&target, separator),
             None => final_placeholder_statement(&target),
         })
     }
 
-    /// Next anonymous target: an output slot in return mode, otherwise the next explicit
+    /// Where the next anonymous placeholder goes, with its description. In return mode the
+    /// value itself is an output and has no destination; otherwise it is the next explicit
     /// `&mut` argument.
-    fn anonymous_target(&mut self, is_final: bool) -> syn::Result<Target> {
+    fn anonymous_destination(
+        &mut self,
+        value: &Ident,
+        is_final: bool,
+    ) -> syn::Result<(Option<TokenStream2>, String)> {
         let index = self.anonymous_count;
-        let tokens = if self.return_mode {
-            let out = Ident::new(&format!("out{index}"), internal_span());
-            self.outputs.push(out.clone());
-            quote! { #out }
+        let destination = if self.return_mode {
+            self.outputs.push(value.clone());
+            None
         } else {
             let Some(arg_expr) = self.explicit_args.get(index) else {
                 return Err(missing_argument_error(index + 1, is_final, self.format_lit));
             };
-            quote! { *(#arg_expr) }
+            Some(quote! { *(#arg_expr) })
         };
         self.anonymous_count += 1;
-        Ok(Target::anonymous(tokens, self.anonymous_count))
+        Ok((
+            destination,
+            format!("anonymous placeholder #{}", self.anonymous_count),
+        ))
     }
 }
 
@@ -125,6 +152,8 @@ fn statements_for_tokens(
         explicit_args,
         format_lit,
         return_mode,
+        values: Vec::new(),
+        assignments: Vec::new(),
         outputs: Vec::new(),
         anonymous_count: 0,
     };
@@ -151,7 +180,11 @@ fn statements_for_tokens(
     check_all_arguments_used(explicit_args, resolver.anonymous_count)?;
     Ok(Generated {
         statements,
+        values: resolver.values,
+        assignments: resolver.assignments,
         outputs: resolver.outputs,
+        must_end: !cfg!(feature = "ignore-trailing-input")
+            && matches!(tokens.last(), Some(FormatToken::Text(_))),
     })
 }
 
@@ -179,14 +212,11 @@ fn invalid_input(message: TokenStream2) -> TokenStream2 {
     }
 }
 
-/// Statements that parse the text in the variable `source` and assign it to `target`.
+/// Statements that parse the text in the variable `source` into the local of `target`.
 ///
 /// `source_wording` goes between "from" and the quoted text in the error message.
 fn parse_and_assign(target: &Target, source: &Ident, source_wording: &str) -> TokenStream2 {
-    let Target {
-        tokens,
-        description,
-    } = target;
+    let Target { value, description } = target;
     let span = internal_span();
     let parse_expr = parse_with_trim_fallback(source);
     let message = format!("Failed to parse {{}} from {source_wording}{{:?}}: {{}}");
@@ -195,7 +225,7 @@ fn parse_and_assign(target: &Target, source: &Ident, source_wording: &str) -> To
     });
     quote_spanned! {span=>
         let parsed = #parse_expr.map_err(|error| #error)?;
-        #tokens = parsed;
+        #value = parsed;
     }
 }
 
@@ -367,10 +397,10 @@ pub fn expand(
     let span = internal_span();
     let declarations = generated.declarations();
     let statements = &generated.statements;
-    let result = generated.result();
+    let finish = generated.finish();
     let body = source.bind_remaining(quote_spanned! {span=>
         #(#statements)*
-        #result
+        #finish
     });
     quote_spanned! {span=> {
         (|| -> ::std::io::Result<_> {
@@ -436,6 +466,28 @@ mod tests {
     fn named_placeholders_do_not_enable_return_mode() {
         let generated = statements("{a}:{b}", &[]).unwrap();
         assert!(generated.outputs.is_empty());
+    }
+
+    #[test]
+    fn only_formats_ending_in_text_must_end_the_input() {
+        let ends_in_text = !cfg!(feature = "ignore-trailing-input");
+        for (format, must_end) in [
+            ("{} units", ends_in_text),
+            ("exact", ends_in_text),
+            ("{}:{}", false),
+            ("a{x}", false),
+        ] {
+            let generated = statements(format, &[]).unwrap();
+            assert_eq!(generated.must_end, must_end, "format: {format:?}");
+        }
+    }
+
+    #[test]
+    fn every_placeholder_gets_a_local_but_only_anonymous_ones_are_outputs() {
+        let generated = statements("{a}:{}:{b}", &[]).unwrap();
+        assert_eq!(generated.values.len(), 3);
+        assert_eq!(generated.outputs.len(), 1);
+        assert_eq!(generated.assignments.len(), 2);
     }
 
     #[test]

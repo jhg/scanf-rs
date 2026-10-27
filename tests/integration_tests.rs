@@ -584,18 +584,111 @@ mod parsing_behavior {
     }
 
     #[test]
-    fn text_after_the_last_separator_is_not_checked() {
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn text_after_the_last_literal_is_an_error() {
         let mut n: i32 = 0;
-        sscanf!("5 units extra", "{} units", &mut n).unwrap();
-        assert_eq!(n, 5);
+        let message = invalid_input_message(sscanf!("5 units extra", "{} units", &mut n));
+        assert!(message.contains("\" extra\""), "{message}");
+        assert_eq!(n, 0);
     }
 
     #[test]
-    fn values_parsed_before_a_failure_stay_written() {
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn text_after_the_last_literal_is_an_error_in_every_form() {
+        let returned: std::io::Result<i32> = sscanf!("5 units extra", "{} units");
+        assert_eq!(returned.unwrap_err().kind(), ErrorKind::InvalidInput);
+
+        let mut n: i32 = 0;
+        assert!(sscanf!("5 units extra", "{n} units").is_err());
+
+        assert!(sscanf!("exact match!", "exact match").is_err());
+        assert!(sscanf!("a:b:", "a:b").is_err());
+    }
+
+    #[test]
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn trailing_whitespace_after_the_last_literal_is_an_error() {
+        let result: std::io::Result<i32> = sscanf!("5 units ", "{} units");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn input_that_ends_exactly_at_the_last_literal_is_accepted() {
+        let n: i32 = sscanf!("5 units", "{} units").unwrap();
+        assert_eq!(n, 5);
+        sscanf!("exact match", "exact match").unwrap();
+    }
+
+    #[test]
+    fn a_final_placeholder_still_takes_the_rest_of_the_input() {
+        let rest: String = sscanf!("key=a=b c", "key={}").unwrap();
+        assert_eq!(rest, "a=b c");
+    }
+
+    #[test]
+    fn nothing_is_written_when_a_later_placeholder_fails() {
         let (mut a, mut b): (i32, i32) = (0, 0);
         let result = sscanf!("7,x", "{a},{b}");
         assert!(result.is_err());
-        assert_eq!((a, b), (7, 0));
+        assert_eq!((a, b), (0, 0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn nothing_is_written_when_the_trailing_text_does_not_match() {
+        let (mut a, mut b): (i32, i32) = (1, 2);
+        assert!(sscanf!("7,8 extra", "{a},{b} units").is_err());
+        assert!(sscanf!("7,8 units extra", "{a},{b} units").is_err());
+        assert_eq!((a, b), (1, 2));
+    }
+
+    #[test]
+    fn nothing_is_written_when_a_separator_is_missing() {
+        let (mut a, mut b): (i32, i32) = (1, 2);
+        assert!(sscanf!("7;8", "{a},{b}").is_err());
+        assert_eq!((a, b), (1, 2));
+    }
+
+    #[test]
+    fn nothing_is_written_through_explicit_arguments_either() {
+        let (mut a, mut b): (i32, i32) = (1, 2);
+        assert!(sscanf!("7,x", "{},{}", &mut a, &mut b).is_err());
+        assert_eq!((a, b), (1, 2));
+    }
+
+    #[test]
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    fn nothing_is_written_through_explicit_arguments_when_trailing_text_does_not_match() {
+        let (mut a, mut b): (i32, i32) = (1, 2);
+        assert!(sscanf!("7,8 extra", "{},{} units", &mut a, &mut b).is_err());
+        assert_eq!((a, b), (1, 2));
+    }
+
+    #[test]
+    fn nothing_is_written_to_named_placeholders_mixed_with_explicit_ones() {
+        let (mut name, mut age): (String, i32) = (String::from("old"), 3);
+        assert!(sscanf!("Ana: x", "{name}: {}", &mut age).is_err());
+        assert_eq!((name.as_str(), age), ("old", 3));
+    }
+
+    #[test]
+    fn every_value_is_written_when_all_of_them_parse() {
+        let (mut a, mut b, mut c): (i32, String, f64) = (0, String::new(), 0.0);
+        sscanf!("7,mid,2.5", "{a},{b},{c}").unwrap();
+        assert_eq!((a, b.as_str(), c), (7, "mid", 2.5));
+    }
+
+    #[test]
+    fn argument_expressions_are_evaluated_once() {
+        let mut slots = [0_i32; 3];
+        let mut calls = 0;
+        let mut next = || {
+            calls += 1;
+            calls - 1
+        };
+        sscanf!("5,6", "{},{}", &mut slots[next()], &mut slots[next()]).unwrap();
+        assert_eq!(slots, [5, 6, 0]);
+        assert_eq!(calls, 2);
     }
 
     #[test]
@@ -655,6 +748,66 @@ mod parsing_behavior {
     }
 }
 
+#[cfg(feature = "ignore-trailing-input")]
+mod ignore_trailing_input {
+    use super::*;
+
+    #[test]
+    fn input_after_the_last_literal_is_ignored() {
+        let mut n: i32 = 0;
+        sscanf!("5 units extra", "{} units", &mut n).unwrap();
+        assert_eq!(n, 5);
+    }
+
+    #[test]
+    fn in_every_form() {
+        let returned: i32 = sscanf!("5 units extra", "{} units").unwrap();
+        assert_eq!(returned, 5);
+
+        let mut n: i32 = 0;
+        sscanf!("6 units extra", "{n} units").unwrap();
+        assert_eq!(n, 6);
+
+        sscanf!("exact match!", "exact match").unwrap();
+        sscanf!("a:b:", "a:b").unwrap();
+    }
+
+    #[test]
+    fn trailing_whitespace_is_ignored() {
+        let n: i32 = sscanf!("5 units \n", "{} units").unwrap();
+        assert_eq!(n, 5);
+    }
+
+    #[test]
+    fn values_are_written_when_everything_before_the_end_parses() {
+        let (mut a, mut b): (i32, i32) = (0, 0);
+        sscanf!("7,8 units extra", "{a},{b} units").unwrap();
+        assert_eq!((a, b), (7, 8));
+    }
+
+    #[test]
+    fn the_text_before_and_between_must_still_match() {
+        let mut n: i32 = 0;
+        assert!(sscanf!("5 meters extra", "{n} units").is_err());
+        assert!(sscanf!("x 5 units", "v {n} units").is_err());
+        assert!(sscanf!("5", "{n} units").is_err());
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn a_failure_still_writes_nothing() {
+        let (mut a, mut b): (i32, i32) = (1, 2);
+        assert!(sscanf!("7,x units extra", "{a},{b} units").is_err());
+        assert_eq!((a, b), (1, 2));
+    }
+
+    #[test]
+    fn a_final_placeholder_still_takes_the_rest() {
+        let rest: String = sscanf!("key=a=b c", "key={}").unwrap();
+        assert_eq!(rest, "a=b c");
+    }
+}
+
 mod errors {
     use super::*;
 
@@ -674,13 +827,13 @@ mod errors {
     }
 
     #[test]
-    fn type_mismatch_leaves_earlier_values_written() {
+    fn type_mismatch_leaves_earlier_values_unwritten() {
         let input = "Score: 95, Player: Alice";
         let mut score: String = String::new();
         let mut _player: u32 = 0;
         let result = sscanf!(input, "Score: {score}, Player: {_player}");
         assert!(result.is_err());
-        assert_eq!(score, "95");
+        assert_eq!(score, "");
     }
 
     #[test]
@@ -733,8 +886,8 @@ mod errors {
         );
         let message = invalid_input_message(result);
         assert!(message.contains("anonymous placeholder #3"), "{message}");
-        assert_eq!((a, b), (1, 3));
-        assert_eq!((first_named.as_str(), second_named.as_str()), ("x", "y"));
+        assert_eq!((a, b, c), (0, 0, 0));
+        assert_eq!((first_named.as_str(), second_named.as_str()), ("", ""));
     }
 
     #[test]

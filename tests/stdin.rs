@@ -33,6 +33,11 @@ fn run_case(case: &str) -> String {
             let result = scanf!("x={number}");
             format!("{} {number}", describe(result))
         }
+        "named_with_trailing_text" => {
+            let mut number: i32 = 0;
+            let result = scanf!("x={number} end");
+            format!("{} {number}", describe(result))
+        }
         "explicit_argument" => {
             let mut number: i32 = 0;
             let result = scanf!("{}", &mut number);
@@ -124,6 +129,26 @@ const CASES: &[Case] = &[
         case: "named",
         stdin: b"",
         expected: "Err(UnexpectedEof) 0",
+    },
+    #[cfg(not(feature = "ignore-trailing-input"))]
+    Case {
+        name: "text_after_the_last_literal_is_an_error_and_writes_nothing",
+        case: "named_with_trailing_text",
+        stdin: b"x=42 end extra\n",
+        expected: "Err(InvalidInput) 0",
+    },
+    #[cfg(feature = "ignore-trailing-input")]
+    Case {
+        name: "text_after_the_last_literal_is_ignored",
+        case: "named_with_trailing_text",
+        stdin: b"x=42 end extra\n",
+        expected: "Ok(()) 42",
+    },
+    Case {
+        name: "trailing_text_that_matches_is_accepted",
+        case: "named_with_trailing_text",
+        stdin: b"x=42 end\n",
+        expected: "Ok(()) 42",
     },
     Case {
         name: "explicit_argument",

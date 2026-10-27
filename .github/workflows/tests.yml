@@ -52,6 +52,8 @@ jobs:
         run: cargo test --no-run
       - name: Run tests
         run: cargo test --verbose
+      - name: Run tests with every feature
+        run: cargo test --all-features
 
   benchmark:
     strategy:

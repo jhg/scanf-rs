@@ -88,8 +88,8 @@ assert_eq!(product, "Candy");
 
 Both macros return an `io::Result`. Input that does not match the format is an
 `InvalidInput` error, and `scanf!` fails with `UnexpectedEof` when stdin has no more lines.
-With named placeholders, values parsed before a failure are already written, so check the
-result before using the variables. Mistakes in the format string itself are compile errors.
+Nothing is written to your variables unless every placeholder parses, so a failed call
+leaves them as they were. Mistakes in the format string itself are compile errors.
 
 ```rust
 use scanf::sscanf;
@@ -108,20 +108,33 @@ assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidInput);
 - Input is a single line. `scanf!` removes one trailing line ending (`\n`, `\r\n` or a lone
   `\r`). It reads up to the next `\n`, so a stream that separates lines with `\r` alone arrives
   as one long line.
-- Input after a trailing literal in the format is not checked: `"{} units"` accepts
-  `"5 units extra"`.
+- When the format ends with literal text, the input must end there too: `"{} units"` rejects
+  `"5 units extra"`. The `ignore-trailing-input` feature relaxes this.
 - Format strings are limited to 10,000 bytes, 256 tokens (text segments and placeholders)
   and 128-character placeholder names.
 
 ```rust
 use scanf::sscanf;
 
-// The first separator wins, and text after the trailing literal is ignored.
-let (key, value): (String, String) = sscanf!("a=b=c units, extra", "{}={} units").unwrap();
+// The first separator wins.
+let (key, value): (String, String) = sscanf!("a=b=c units", "{}={} units").unwrap();
 assert_eq!((key.as_str(), value.as_str()), ("a", "b=c"));
 ```
 
 ## Features
+
+### `ignore-trailing-input` (disabled by default)
+
+When the format ends with literal text, by default the input has to end right after it, and
+anything left over is an `InvalidInput` error. With this feature the leftover is ignored, so
+`"{} units"` accepts `"5 units extra"`:
+
+```toml
+scanf = { version = "2", features = ["ignore-trailing-input"] }
+```
+
+The text before and between placeholders is still checked, and a format that ends with a
+placeholder still gives that placeholder the rest of the input.
 
 ### `trim-whitespace` (disabled by default)
 

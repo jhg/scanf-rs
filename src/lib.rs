@@ -42,12 +42,11 @@ use parsing::{ScanfArgs, SscanfArgs};
 /// assert_eq!(x, 10);
 /// assert_eq!(y, 20);
 ///
-/// // A failed parse is an `InvalidInput` error. With named placeholders, values parsed
-/// // before the failure are already written, so check the result before using them.
+/// // A failed parse is an `InvalidInput` error, and nothing is written to the variables.
 /// let (mut a, mut b): (i32, i32) = (0, 0);
 /// let error = sscanf!("7,x", "{a},{b}").unwrap_err();
 /// assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
-/// assert_eq!((a, b), (7, 0));
+/// assert_eq!((a, b), (0, 0));
 /// ```
 #[proc_macro]
 pub fn sscanf(input: TokenStream) -> TokenStream {
