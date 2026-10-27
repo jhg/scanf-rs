@@ -1,7 +1,6 @@
 # Scanf
 
-`scanf!` and `sscanf!` for Rust, in the style of C's `scanf`: parse text according to a format
-string, the inverse of `print!` and `format!`. The crate contains no `unsafe` code.
+`scanf!` and `sscanf!` for Rust, in the style of C's `scanf`: parse text according to a format string, the inverse of `print!` and `format!`.
 
 ## Usage
 
