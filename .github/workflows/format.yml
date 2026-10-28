@@ -5,6 +5,9 @@ on:
     paths:
       - "**/*.rs"
 
+permissions:
+  contents: read
+
 jobs:
   format-rust-code:
     runs-on: ubuntu-latest
