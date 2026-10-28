@@ -280,3 +280,39 @@ mod matching_rules_are_those_of_sscanf {
         assert_eq!(next, "next");
     }
 }
+
+mod shared_format_engine {
+    use super::*;
+
+    #[test]
+    fn escaped_braces() {
+        let mut input = Cursor::new("{hi}\n");
+        let inner: String = fscanf!(input, "{{{}}}").unwrap();
+        assert_eq!(inner, "hi");
+    }
+
+    #[test]
+    fn many_placeholders() {
+        let mut input = Cursor::new("1 2 3 4 5 6 7 8 9 10\n");
+        let values: (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) =
+            fscanf!(input, "{} {} {} {} {} {} {} {} {} {}").unwrap();
+        assert_eq!((values.0, values.9), (1, 10));
+    }
+
+    #[test]
+    #[cfg(feature = "ignore-trailing-input")]
+    fn text_after_the_last_literal_is_ignored_and_the_line_is_consumed() {
+        let mut input = Cursor::new("5 units extra\n6\n");
+        let n: i32 = fscanf!(input, "{} units").unwrap();
+        let next: i32 = fscanf!(input, "{}").unwrap();
+        assert_eq!((n, next), (5, 6));
+    }
+
+    #[test]
+    #[cfg(feature = "trim-whitespace")]
+    fn padded_numbers_are_trimmed_after_the_line_ending_is_removed() {
+        let mut input = Cursor::new(" 42 \r\n");
+        let n: i32 = fscanf!(input, "{}").unwrap();
+        assert_eq!(n, 42);
+    }
+}

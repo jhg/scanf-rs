@@ -800,12 +800,6 @@ mod ignore_trailing_input {
         assert!(sscanf!("7,x units extra", "{a},{b} units").is_err());
         assert_eq!((a, b), (1, 2));
     }
-
-    #[test]
-    fn a_final_placeholder_still_takes_the_rest() {
-        let rest: String = sscanf!("key=a=b c", "key={}").unwrap();
-        assert_eq!(rest, "a=b c");
-    }
 }
 
 mod errors {

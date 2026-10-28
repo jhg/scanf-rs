@@ -189,6 +189,22 @@ mod compile_failures {
     fn identifier_with_a_non_identifier_character() {}
 
     /// ```compile_fail
+    /// use scanf::fscanf;
+    ///
+    /// let mut input = std::io::Cursor::new("5\n");
+    /// fscanf!(input, "");
+    /// ```
+    fn fscanf_checks_the_format_too() {}
+
+    /// ```compile_fail
+    /// use scanf::scanf;
+    ///
+    /// let mut a: i32 = 0;
+    /// scanf!("{},{}", &mut a);
+    /// ```
+    fn scanf_checks_the_arguments_too() {}
+
+    /// ```compile_fail
     /// use scanf::sscanf;
     ///
     /// let mut a: i32 = 0;
