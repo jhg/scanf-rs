@@ -332,6 +332,27 @@ mod tests {
     }
 
     #[test]
+    fn rejects_one_token_over_the_limit_ending_in_a_named_placeholder() {
+        let format = format!("{}{{name}}", "{} ".repeat(MAX_TOKENS / 2));
+        assert!(error_of(&format).contains("Too many tokens"));
+    }
+
+    #[test]
+    fn consecutive_placeholders_cannot_bypass_the_token_limit() {
+        for placeholder in ["{}", "{name}"] {
+            let format = placeholder.repeat(MAX_TOKENS + 1);
+            // Enforce the limit while tokenizing, before checking for adjacent placeholders.
+            assert!(error_of(&format).contains("Too many tokens"));
+        }
+    }
+
+    #[test]
+    fn rejects_one_token_over_the_limit_in_intermediate_text() {
+        let format = format!("{}b{{}}", "a{}".repeat(MAX_TOKENS / 2));
+        assert!(error_of(&format).contains("Too many tokens"));
+    }
+
+    #[test]
     fn rejects_one_token_over_the_limit_ending_in_text() {
         let format = format!("{}b", "a{}".repeat(MAX_TOKENS / 2));
         assert!(error_of(&format).contains("Too many tokens"));

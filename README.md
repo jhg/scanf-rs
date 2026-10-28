@@ -122,28 +122,22 @@ assert_eq!((key.as_str(), value.as_str()), ("a", "b=c"));
 
 ## Features
 
-### `ignore-trailing-input` (disabled by default)
-
-When the format ends with literal text, by default the input has to end right after it, and
-anything left over is an `InvalidInput` error. With this feature the leftover is ignored, so
-`"{} units"` accepts `"5 units extra"`:
+Both features are disabled by default. Enable either or both in `Cargo.toml`:
 
 ```toml
-scanf = { version = "2", features = ["ignore-trailing-input"] }
+scanf = { version = "2", features = ["ignore-trailing-input", "trim-whitespace"] }
 ```
 
-The text before and between placeholders is still checked, and a format that ends with a
-placeholder still gives that placeholder the rest of the input.
+### `ignore-trailing-input`
 
-### `trim-whitespace` (disabled by default)
+Allows extra input after the format's final literal text: `"{} units"` accepts
+`"5 units extra"` instead of returning `InvalidInput`. All literal text must still match.
+If the format ends with a placeholder, it still captures the rest of the input.
 
-By default every captured value is parsed exactly as it appears in the input, so `" 42 "` is
-not a valid integer. Enabling this feature makes a capture that fails to parse be retried once
-with its surrounding whitespace trimmed:
+### `trim-whitespace`
 
-```toml
-scanf = { version = "2", features = ["trim-whitespace"] }
-```
+Retries a failed parse with leading and trailing whitespace removed. Successful parses are
+unchanged, so `String` values keep their whitespace:
 
 ```text
 sscanf!(" 42 ", "{number}")      // number: i32      -> 42
@@ -151,16 +145,8 @@ sscanf!("  hi  ,7", "{s},{n}")   // s: String        -> "  hi  " (kept as is)
 sscanf!("1 2", "{number}")       // number: i32      -> error (only the edges are trimmed)
 ```
 
-How it works and what to keep in mind:
-
-- The macro cannot see the type of the variable, so the rule is "retry on failure", not
-  "trim numbers". A `String` never fails to parse, so it always keeps its whitespace.
-- Only leading and trailing whitespace is removed. Whitespace between two values is never
-  interpreted: `"1 2"` into a single number is still an error.
-- **Limitation:** the retry applies to every type implementing `FromStr`. A custom type whose
-  `FromStr` deliberately rejects surrounding whitespace, but accepts the trimmed text, will
-  accept it with this feature enabled.
-- If both attempts fail, the error of the first (untrimmed) attempt is reported.
-- The line ending read by `scanf!` is always removed, with or without this feature.
+This applies to all `FromStr` types, including custom types that normally reject surrounding
+whitespace. If both attempts fail, the original error is returned. `scanf!` removes the line
+ending regardless of this feature.
 
 If you have problems using the macros, please [create an issue](https://github.com/jhg/scanf-rs/issues?q=is%3Aissue).
