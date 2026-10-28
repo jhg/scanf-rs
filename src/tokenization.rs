@@ -194,14 +194,9 @@ mod tests {
         FormatToken::Placeholder(Placeholder::Anonymous)
     }
 
-    /// Compare ignoring `Debug` noise: `FormatToken` does not implement `PartialEq`.
     fn assert_tokens(format: &str, expected: &[FormatToken]) {
         let tokens = tokenize(format).unwrap();
-        assert_eq!(
-            format!("{tokens:?}"),
-            format!("{expected:?}"),
-            "format: {format:?}"
-        );
+        assert_eq!(tokens, expected, "format: {format:?}");
     }
 
     #[test]

@@ -55,13 +55,17 @@ impl Generated {
             }
         });
         let assignments = &self.assignments;
-        let outputs = &self.outputs;
-        let result = match outputs.len() {
-            0 => quote! { ::core::result::Result::Ok(()) },
-            1 => quote! { ::core::result::Result::Ok(#(#outputs)*) },
-            _ => quote! { ::core::result::Result::Ok((#(#outputs),*)) },
-        };
+        let result = result_expression(&self.outputs);
         quote! { #check #(#assignments)* #result }
+    }
+}
+
+/// Build the return expression for zero, one, or several anonymous placeholders.
+fn result_expression(outputs: &[Ident]) -> TokenStream2 {
+    match outputs {
+        [] => quote! { ::core::result::Result::Ok(()) },
+        [output] => quote! { ::core::result::Result::Ok(#output) },
+        _ => quote! { ::core::result::Result::Ok((#(#outputs),*)) },
     }
 }
 
@@ -363,7 +367,7 @@ impl Source<'_> {
             },
             Source::Stdin => quote_spanned! {span=>
                 let mut buffer = ::std::string::String::new();
-                let _ = ::std::io::Write::flush(&mut ::std::io::stdout());
+                ::std::io::Write::flush(&mut ::std::io::stdout())?;
                 let bytes_read = ::std::io::stdin().read_line(&mut buffer)?;
                 if bytes_read == 0 {
                     return ::core::result::Result::Err(::std::io::Error::new(
