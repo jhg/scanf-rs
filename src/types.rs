@@ -8,7 +8,7 @@ pub enum Placeholder {
 }
 
 /// Format string token: literal text or placeholder.
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FormatToken {
     Text(Box<str>),
     Placeholder(Placeholder),
