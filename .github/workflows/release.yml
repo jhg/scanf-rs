@@ -16,6 +16,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
@@ -39,10 +43,17 @@ jobs:
           tagFormat: v${version}
 
   audit:
-    uses: jhg/scanf-rs/.github/workflows/audit.yml@main
+    permissions:
+      contents: read
+      checks: write # Report audit results.
+      issues: write # Open issues for scheduled security advisories.
+    uses: ./.github/workflows/audit.yml
 
   tests:
-    uses: jhg/scanf-rs/.github/workflows/tests.yml@main
+    permissions:
+      contents: read
+      pull-requests: write # Allow the reusable benchmark job to comment on PRs.
+    uses: ./.github/workflows/tests.yml
 
   publish:
     permissions:
@@ -65,4 +76,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "${{needs.version_check.outputs.releaseVersion}}"
-          target_commitish: "${{github.ref_name}}"
+          target_commitish: "${{ github.sha }}"

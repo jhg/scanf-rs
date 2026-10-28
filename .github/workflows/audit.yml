@@ -15,6 +15,10 @@ permissions:
 
 jobs:
   audit:
+    permissions:
+      contents: read
+      checks: write # Report audit results.
+      issues: write # Open issues for scheduled security advisories.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1

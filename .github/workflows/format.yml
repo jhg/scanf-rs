@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   format-rust-code:
+    permissions:
+      contents: write # Push formatting fixes (the action defaults to commit mode).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
