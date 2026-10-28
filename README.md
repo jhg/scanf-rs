@@ -103,6 +103,11 @@ fscanf!(input, "{name}: {score}").unwrap();
 assert_eq!((name.as_str(), score), ("Bob", 7.0));
 ```
 
+A call always consumes the whole line, even if the format only uses part of it or the line
+does not match; the next call starts on the next line. When the reader has no more lines the
+call fails with `UnexpectedEof`, and a line that is not valid UTF-8 fails with `InvalidData`.
+Errors from the reader itself are passed on unchanged.
+
 `scanf!` locks stdin on every call. If your code already holds a `stdin().lock()`, a call to
 `scanf!` on the same thread waits forever, because that lock is not reentrant. Read from the
 lock you hold instead:

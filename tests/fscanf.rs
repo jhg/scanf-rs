@@ -187,6 +187,46 @@ mod end_of_input {
     }
 }
 
+mod chunked_and_long_input {
+    use super::*;
+
+    /// Hands out one byte per `read`, so lines arrive in many small pieces.
+    struct OneByte<'a>(&'a [u8]);
+
+    impl std::io::Read for OneByte<'_> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            match self.0.split_first() {
+                Some((&byte, rest)) if !buf.is_empty() => {
+                    buf[0] = byte;
+                    self.0 = rest;
+                    Ok(1)
+                }
+                _ => Ok(0),
+            }
+        }
+    }
+
+    #[test]
+    fn lines_arriving_one_byte_at_a_time() {
+        let mut input = BufReader::with_capacity(1, OneByte(b"12 ab\r\n7 cd\n"));
+        let (n, s): (i32, String) = fscanf!(input, "{} {}").unwrap();
+        assert_eq!((n, s.as_str()), (12, "ab"));
+        let (n, s): (i32, String) = fscanf!(input, "{} {}").unwrap();
+        assert_eq!((n, s.as_str()), (7, "cd"));
+    }
+
+    #[test]
+    fn a_line_much_longer_than_the_buffer() {
+        let long = "x".repeat(1_000_000);
+        let data = format!("{long}\nnext\n");
+        let mut input = BufReader::with_capacity(16, data.as_bytes());
+        let first: String = fscanf!(input, "{}").unwrap();
+        assert_eq!(first.len(), 1_000_000);
+        let second: String = fscanf!(input, "{}").unwrap();
+        assert_eq!(second, "next");
+    }
+}
+
 mod forms {
     use super::*;
 
