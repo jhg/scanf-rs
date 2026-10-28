@@ -16,22 +16,24 @@ fn parse_optional_args(input: ParseStream) -> syn::Result<Punctuated<Expr, Comma
     Punctuated::parse_terminated(input)
 }
 
-pub struct SscanfArgs {
-    pub input: Expr,
+/// Arguments of the macros that take a source first: `sscanf!` (a string) and `fscanf!`
+/// (a reader).
+pub struct SourceArgs {
+    pub source: Expr,
     pub format: LitStr,
     pub args: Punctuated<Expr, Comma>,
 }
 
-impl Parse for SscanfArgs {
+impl Parse for SourceArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let input_expr = input.parse()?;
+        let source = input.parse()?;
         input.parse::<Token![,]>()?;
         let format = input.parse()?;
 
         let args = parse_optional_args(input)?;
 
         Ok(Self {
-            input: input_expr,
+            source,
             format,
             args,
         })

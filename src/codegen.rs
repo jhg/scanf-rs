@@ -342,7 +342,9 @@ fn generate(format_lit: &LitStr, explicit_args: &[&Expr]) -> syn::Result<Generat
 pub enum Source<'a> {
     /// `sscanf!`: the value of this expression, evaluated once.
     Expression(&'a Expr),
-    /// `scanf!`: one line from stdin.
+    /// `fscanf!`: one line from this `BufRead`, borrowed mutably like the writer of `write!`.
+    Reader(&'a Expr),
+    /// `scanf!`: one line from stdin, after flushing stdout so a prompt shows up first.
     Stdin,
 }
 
@@ -361,22 +363,41 @@ impl Source<'_> {
                     }
                 }
             },
-            Source::Stdin => quote_spanned! {span=>
-                let mut buffer = ::std::string::String::new();
-                let _ = ::std::io::Write::flush(&mut ::std::io::stdout());
-                let bytes_read = ::std::io::stdin().read_line(&mut buffer)?;
-                if bytes_read == 0 {
-                    return ::core::result::Result::Err(::std::io::Error::new(
-                        ::std::io::ErrorKind::UnexpectedEof,
-                        "no input available on stdin",
-                    ));
-                }
-                // One line ending is dropped: `\n`, `\r\n` or a lone `\r`. Any other `\r` stays.
-                let line = buffer.strip_suffix('\n').unwrap_or(&buffer);
-                let mut remaining: &str = line.strip_suffix('\r').unwrap_or(line);
-                #body
-            },
+            Source::Reader(reader) => read_line_into_remaining(&reader.to_token_stream(), body),
+            Source::Stdin => {
+                let flush = quote_spanned! {span=>
+                    let _ = ::std::io::Write::flush(&mut ::std::io::stdout());
+                };
+                let stdin = quote_spanned! {span=> ::std::io::stdin().lock() };
+                let read = read_line_into_remaining(&stdin, body);
+                quote_spanned! {span=> #flush #read }
+            }
         }
+    }
+}
+
+/// Reads one line from `reader` and defines `remaining: &str` without its line ending, then
+/// runs `body`. Shared by every source that reads, so they all treat lines the same way.
+fn read_line_into_remaining(reader: &TokenStream2, body: TokenStream2) -> TokenStream2 {
+    let span = internal_span();
+    quote_spanned! {span=>
+        let mut buffer = ::std::string::String::new();
+        // A method call, so the reader is borrowed automatically (as in `write!`): a variable,
+        // a `&mut` reference or a temporary all work without being declared `mut`.
+        let bytes_read = {
+            use ::std::io::BufRead as _;
+            (#reader).read_line(&mut buffer)?
+        };
+        if bytes_read == 0 {
+            return ::core::result::Result::Err(::std::io::Error::new(
+                ::std::io::ErrorKind::UnexpectedEof,
+                "no input available",
+            ));
+        }
+        // One line ending is dropped: `\n`, `\r\n` or a lone `\r`. Any other `\r` stays.
+        let line = buffer.strip_suffix('\n').unwrap_or(&buffer);
+        let mut remaining: &str = line.strip_suffix('\r').unwrap_or(line);
+        #body
     }
 }
 

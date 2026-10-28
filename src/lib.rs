@@ -11,7 +11,7 @@ use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
 use codegen::{Source, expand};
-use parsing::{ScanfArgs, SscanfArgs};
+use parsing::{ScanfArgs, SourceArgs};
 
 /// Parse a string with a format string, similar to C's `sscanf`.
 ///
@@ -50,9 +50,45 @@ use parsing::{ScanfArgs, SscanfArgs};
 /// ```
 #[proc_macro]
 pub fn sscanf(input: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(input as SscanfArgs);
+    let args = parse_macro_input!(input as SourceArgs);
 
-    expand(&args.format, &args.args, &Source::Expression(&args.input))
+    expand(&args.format, &args.args, &Source::Expression(&args.source))
+}
+
+/// Read one line from a reader and parse it with a format string, like `sscanf!` does with a
+/// string.
+///
+/// Syntax: `fscanf!(reader, "format")`
+///
+/// The reader is any `BufRead` (a `Cursor`, a `&[u8]`, a `BufReader`, a locked stdin) and is
+/// borrowed mutably, as the writer of `write!` is, so it is not moved and can be used again.
+/// Each call consumes one line, removing its line ending (`\n`, `\r\n` or a lone `\r`), and
+/// fails with `UnexpectedEof` when there is none left. If the line does not match the format
+/// it is consumed anyway. Formats, placeholders and results work as in `sscanf!`.
+///
+/// # Examples
+///
+/// ```
+/// use scanf::fscanf;
+/// use std::io::Cursor;
+///
+/// let mut input = Cursor::new("Ana: 9.5\nBob: 7\n");
+///
+/// let (name, score): (String, f64) = fscanf!(input, "{}: {}").unwrap();
+/// assert_eq!((name.as_str(), score), ("Ana", 9.5));
+///
+/// let mut name = String::new();
+/// let mut score: f64 = 0.0;
+/// fscanf!(input, "{name}: {score}").unwrap();
+/// assert_eq!((name.as_str(), score), ("Bob", 7.0));
+///
+/// let end: std::io::Result<String> = fscanf!(input, "{}");
+/// assert_eq!(end.unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
+/// ```
+#[proc_macro]
+pub fn fscanf(input: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(input as SourceArgs);
+    expand(&args.format, &args.args, &Source::Reader(&args.source))
 }
 
 /// Read from stdin and parse with a format string, similar to C's `scanf`.
@@ -60,7 +96,11 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 /// Syntax: `scanf!("format")`
 ///
 /// Flushes stdout, reads a line and parses it (the line ending is removed). Fails with
-/// `UnexpectedEof` when stdin has no more input. The format works as in `sscanf!`, and the
+/// `UnexpectedEof` when stdin has no more input.
+///
+/// It locks stdin for the duration of the call, so it must not be used while the same thread
+/// holds a `stdin().lock()`: the lock is not reentrant and the call would wait forever. In that
+/// situation read from the lock you hold with `fscanf!` instead. The format works as in `sscanf!`, and the
 /// result is the same: the values of the `{}` placeholders, or `()` for named ones.
 ///
 /// # Examples

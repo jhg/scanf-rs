@@ -2,7 +2,7 @@
 //! started again) with piped input. There is no test harness: `main` is both the runner and,
 //! when `CASE_ENV` is set, the child.
 
-use scanf::scanf;
+use scanf::{fscanf, scanf};
 use std::io::{ErrorKind, Write};
 use std::process::{Command, Stdio};
 
@@ -51,6 +51,24 @@ fn run_case(case: &str) -> String {
         "pair" => {
             let result: std::io::Result<(i32, String)> = scanf!("{},{}");
             describe(result)
+        }
+        "fscanf_on_a_held_lock" => {
+            // `scanf!` here would wait forever for the lock this thread already holds.
+            let mut input = std::io::stdin().lock();
+            let first: std::io::Result<String> = fscanf!(input, "{}");
+            let second: std::io::Result<(i32, i32)> = fscanf!(input, "{},{}");
+            let third: std::io::Result<String> = fscanf!(input, "{}");
+            format!(
+                "{} {} {}",
+                describe(first),
+                describe(second),
+                describe(third)
+            )
+        }
+        "fscanf_on_stdin_handle" => {
+            let stdin = std::io::stdin();
+            let n: std::io::Result<i32> = fscanf!(stdin, "{}");
+            describe(n)
         }
         other => panic!("unknown case {other:?}"),
     }
@@ -149,6 +167,18 @@ const CASES: &[Case] = &[
         case: "named_with_trailing_text",
         stdin: b"x=42 end\n",
         expected: "Ok(()) 42",
+    },
+    Case {
+        name: "fscanf_reads_from_a_lock_that_is_already_held",
+        case: "fscanf_on_a_held_lock",
+        stdin: b"one\n2,3\n",
+        expected: "Ok(\"one\") Ok((2, 3)) Err(UnexpectedEof)",
+    },
+    Case {
+        name: "fscanf_accepts_the_stdin_handle",
+        case: "fscanf_on_stdin_handle",
+        stdin: b"12\n",
+        expected: "Ok(12)",
     },
     Case {
         name: "explicit_argument",

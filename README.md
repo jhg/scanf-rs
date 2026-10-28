@@ -83,6 +83,37 @@ sscanf!(input, "{{{product}}}").unwrap();
 assert_eq!(product, "Candy");
 ```
 
+### Reading from any reader
+
+`fscanf!` is `sscanf!` for readers. It takes any `BufRead` first, borrowed mutably like the
+writer of `write!`, and each call consumes one line:
+
+```rust
+use scanf::fscanf;
+use std::io::Cursor;
+
+let mut input = Cursor::new("Ana: 9.5\nBob: 7\n");
+
+let (name, score): (String, f64) = fscanf!(input, "{}: {}").unwrap();
+assert_eq!((name.as_str(), score), ("Ana", 9.5));
+
+let mut name = String::new();
+let mut score: f64 = 0.0;
+fscanf!(input, "{name}: {score}").unwrap();
+assert_eq!((name.as_str(), score), ("Bob", 7.0));
+```
+
+`scanf!` locks stdin on every call. If your code already holds a `stdin().lock()`, a call to
+`scanf!` on the same thread waits forever, because that lock is not reentrant. Read from the
+lock you hold instead:
+
+```no_run
+use scanf::fscanf;
+
+let mut input = std::io::stdin().lock();
+let (a, b): (i32, i32) = fscanf!(input, "{} {}").unwrap();
+```
+
 ### Errors
 
 Both macros return an `io::Result`. Input that does not match the format is an
