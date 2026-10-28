@@ -21,6 +21,9 @@ env:
   CARGO_INCREMENTAL: "0"
   RUSTFLAGS: "-D warnings"
 
+permissions:
+  contents: read
+
 jobs:
   version_check:
     runs-on: ubuntu-latest
@@ -48,6 +51,8 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs: [audit, tests, version_check]
     if: ${{needs.version_check.outputs.versionChanged == 'true'}}
     env:
