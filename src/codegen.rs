@@ -30,6 +30,9 @@ struct Generated {
     /// The format ends with literal text, so no input may be left after it (unless the
     /// `ignore-trailing-input` feature is on).
     must_end: bool,
+    /// The reader keeps whatever the final placeholder left unparsed (see
+    /// `partial_final_placeholder_statement`).
+    partial: bool,
 }
 
 impl Generated {
@@ -39,10 +42,10 @@ impl Generated {
         quote! { #(let #values;)* }
     }
 
-    /// What runs after every placeholder has parsed: the end-of-input check, the writes into
-    /// the caller's variables and the final `Ok(..)` (`()` without outputs, the value for one,
+    /// What runs after every placeholder has parsed: the end-of-input check, `consume` (what a
+    /// reader gives up, nothing for `sscanf!`), the writes into the caller's variables and the final `Ok(..)` (`()` without outputs, the value for one,
     /// a tuple for several).
-    fn finish(&self) -> TokenStream2 {
+    fn finish(&self, consume: &TokenStream2) -> TokenStream2 {
         let span = internal_span();
         let trailing_input = invalid_input(quote_spanned! {span=>
             ::std::format!("Unexpected input after the end of the format: {:?}", remaining)
@@ -56,7 +59,7 @@ impl Generated {
         });
         let assignments = &self.assignments;
         let result = result_expression(&self.outputs);
-        quote! { #check #(#assignments)* #result }
+        quote! { #check #consume #(#assignments)* #result }
     }
 }
 
@@ -82,6 +85,9 @@ struct TargetResolver<'a> {
     format_lit: &'a LitStr,
     /// Anonymous placeholders produce values instead of writing through explicit arguments.
     return_mode: bool,
+    /// The final placeholder may leave unparsed text for the next read (see
+    /// `partial_final_placeholder_statement`).
+    partial: bool,
     values: Vec<Ident>,
     assignments: Vec<TokenStream2>,
     outputs: Vec<Ident>,
@@ -113,6 +119,7 @@ impl TargetResolver<'_> {
         let target = Target { value, description };
         Ok(match separator {
             Some(separator) => separated_placeholder_statement(&target, separator),
+            None if self.partial => partial_final_placeholder_statement(&target),
             None => final_placeholder_statement(&target),
         })
     }
@@ -151,11 +158,13 @@ fn statements_for_tokens(
     explicit_args: &[&Expr],
     format_lit: &LitStr,
     return_mode: bool,
+    partial: bool,
 ) -> syn::Result<Generated> {
     let mut resolver = TargetResolver {
         explicit_args,
         format_lit,
         return_mode,
+        partial,
         values: Vec::new(),
         assignments: Vec::new(),
         outputs: Vec::new(),
@@ -189,6 +198,7 @@ fn statements_for_tokens(
         outputs: resolver.outputs,
         must_end: !cfg!(feature = "ignore-trailing-input")
             && matches!(tokens.last(), Some(FormatToken::Text(_))),
+        partial,
     })
 }
 
@@ -302,6 +312,60 @@ fn final_placeholder_statement(target: &Target) -> TokenStream2 {
     }
 }
 
+/// Last placeholder of a reader: takes the whole rest of the line when that parses, otherwise
+/// the longest prefix that parses and is followed by whitespace, so `12 abc` read as a number
+/// is `12` and ` abc` stays for the next call. Nothing is consumed here; the reader only gives
+/// up what matched once the whole call has succeeded.
+///
+/// The macro cannot know the target type, so it tries the candidates in order and keeps the
+/// first success. If none parses, the error is the one of the whole rest.
+fn partial_final_placeholder_statement(target: &Target) -> TokenStream2 {
+    let Target { value, description } = target;
+    let span = internal_span();
+    let text = Ident::new("text", span);
+    let parse_expr = parse_with_trim_fallback(&text);
+    let error = invalid_input(quote_spanned! {span=>
+        ::std::format!(
+            "Failed to parse {} from remaining input {:?}: {}",
+            #description,
+            remaining,
+            first_error.expect("the whole rest is always tried first")
+        )
+    });
+    quote_spanned! {span=>
+        {
+            let mut first_error = ::core::option::Option::None;
+            let mut matched = ::core::option::Option::None;
+            let ends = ::core::iter::once(remaining.len()).chain(
+                remaining
+                    .char_indices()
+                    .rev()
+                    .filter(|&(index, ch)| index > 0 && ch.is_whitespace())
+                    .map(|(index, _)| index),
+            );
+            for end in ends {
+                let #text = &remaining[..end];
+                match #parse_expr {
+                    ::core::result::Result::Ok(parsed) => {
+                        matched = ::core::option::Option::Some((parsed, end));
+                        break;
+                    }
+                    ::core::result::Result::Err(error) => {
+                        if first_error.is_none() {
+                            first_error = ::core::option::Option::Some(error);
+                        }
+                    }
+                }
+            }
+            let ::core::option::Option::Some((parsed, end)) = matched else {
+                return ::core::result::Result::Err(#error);
+            };
+            #value = parsed;
+            remaining = &remaining[end..];
+        }
+    }
+}
+
 fn missing_argument_error(position: usize, is_final: bool, format_lit: &LitStr) -> syn::Error {
     let prefix = if is_final { "Final " } else { "" };
     format_error(
@@ -331,7 +395,11 @@ fn check_all_arguments_used(explicit_args: &[&Expr], anonymous_count: usize) -> 
 /// Tokenize the format string and generate the parsing statements.
 ///
 /// Anonymous placeholders without any explicit argument select return mode.
-fn generate(format_lit: &LitStr, explicit_args: &[&Expr]) -> syn::Result<Generated> {
+fn generate(
+    format_lit: &LitStr,
+    explicit_args: &[&Expr],
+    reads_a_stream: bool,
+) -> syn::Result<Generated> {
     let tokens = tokenize_format_string(&format_lit.value(), format_lit)?;
 
     let has_anonymous = tokens
@@ -339,7 +407,8 @@ fn generate(format_lit: &LitStr, explicit_args: &[&Expr]) -> syn::Result<Generat
         .any(|token| matches!(token, FormatToken::Placeholder(Placeholder::Anonymous)));
     let return_mode = explicit_args.is_empty() && has_anonymous;
 
-    statements_for_tokens(&tokens, explicit_args, format_lit, return_mode)
+    let partial = reads_a_stream && matches!(tokens.last(), Some(FormatToken::Placeholder(_)));
+    statements_for_tokens(&tokens, explicit_args, format_lit, return_mode, partial)
 }
 
 /// Where the text to parse comes from.
@@ -367,41 +436,90 @@ impl Source<'_> {
                     }
                 }
             },
-            Source::Reader(reader) => read_line_into_remaining(&reader.to_token_stream(), body),
+            Source::Reader(reader) => peek_line_into_remaining(&reader.to_token_stream(), body),
             Source::Stdin => {
                 let flush = quote_spanned! {span=>
                     let _ = ::std::io::Write::flush(&mut ::std::io::stdout());
                 };
                 let stdin = quote_spanned! {span=> ::std::io::stdin().lock() };
-                let read = read_line_into_remaining(&stdin, body);
+                let read = peek_line_into_remaining(&stdin, body);
                 quote_spanned! {span=> #flush #read }
+            }
+        }
+    }
+
+    /// What the source gives up once the call has succeeded: nothing for a string, and for a
+    /// reader the bytes that matched, or the whole line unless the final placeholder
+    /// (`partial`) may have left some of it for the next call.
+    fn consume(&self, partial: bool) -> TokenStream2 {
+        let span = internal_span();
+        if matches!(self, Source::Expression(_)) {
+            return TokenStream2::new();
+        }
+        let used = if partial {
+            quote_spanned! {span=>
+                text_len - remaining.len() + if remaining.is_empty() { tail } else { 0 }
+            }
+        } else {
+            quote_spanned! {span=> text_len + tail }
+        };
+        quote_spanned! {span=>
+            if peeked {
+                let used = #used;
+                reader.consume(used);
             }
         }
     }
 }
 
-/// Reads one line from `reader` and defines `remaining: &str` without its line ending, then
-/// runs `body`. Shared by every source that reads, so they all treat lines the same way.
-fn read_line_into_remaining(reader: &TokenStream2, body: TokenStream2) -> TokenStream2 {
+/// Looks at the next line of `reader` without consuming it and defines `remaining: &str`
+/// without its line ending, then runs `body`, which ends by consuming what matched (see
+/// `Source::consume`). A failure returns before that, so it consumes nothing.
+///
+/// `BufRead` only shows what is buffered. A line whose end is not in the buffer cannot be
+/// looked at as a whole, so it is read (and consumed) up to its end instead.
+fn peek_line_into_remaining(reader: &TokenStream2, body: TokenStream2) -> TokenStream2 {
     let span = internal_span();
     quote_spanned! {span=>
-        let mut buffer = ::std::string::String::new();
         // A method call, so the reader is borrowed automatically (as in `write!`): a variable,
         // a `&mut` reference or a temporary all work without being declared `mut`.
-        let bytes_read = {
-            use ::std::io::BufRead as _;
-            (#reader).read_line(&mut buffer)?
-        };
-        if bytes_read == 0 {
-            return ::core::result::Result::Err(::std::io::Error::new(
-                ::std::io::ErrorKind::UnexpectedEof,
-                "no input available",
-            ));
+        trait Reborrow {
+            fn reborrow(&mut self) -> &mut Self;
         }
-        // One line ending is dropped: `\n`, `\r\n` or a lone `\r`. Any other `\r` stays.
-        let line = buffer.strip_suffix('\n').unwrap_or(&buffer);
-        let mut remaining: &str = line.strip_suffix('\r').unwrap_or(line);
-        #body
+        impl<T: ::std::io::BufRead + ?::core::marker::Sized> Reborrow for T {
+            fn reborrow(&mut self) -> &mut Self {
+                self
+            }
+        }
+        match (#reader).reborrow() {
+            reader => {
+                use ::std::io::BufRead as _;
+                let newline = reader.fill_buf()?.iter().position(|&byte| byte == b'\n');
+                let peeked = newline.is_some();
+                let mut owned = ::std::vec::Vec::new();
+                let (bytes, line_ending): (&[u8], usize) = match newline {
+                    ::core::option::Option::Some(end) => (&reader.fill_buf()?[..end], 1),
+                    ::core::option::Option::None => {
+                        if reader.read_until(b'\n', &mut owned)? == 0 {
+                            return ::core::result::Result::Err(::std::io::Error::new(
+                                ::std::io::ErrorKind::UnexpectedEof,
+                                "no input available",
+                            ));
+                        }
+                        (owned.strip_suffix(b"\n").unwrap_or(&owned), 0)
+                    }
+                };
+                let line = ::std::str::from_utf8(bytes).map_err(|error| {
+                    ::std::io::Error::new(::std::io::ErrorKind::InvalidData, error)
+                })?;
+                // One line ending is dropped: `\n`, `\r\n` or a lone `\r`. Any other `\r` stays.
+                let text = line.strip_suffix('\r').unwrap_or(line);
+                let text_len = text.len();
+                let tail = line.len() - text_len + line_ending;
+                let mut remaining: &str = text;
+                #body
+            }
+        }
     }
 }
 
@@ -414,7 +532,11 @@ pub fn expand(
     source: &Source,
 ) -> proc_macro::TokenStream {
     let explicit_args: Vec<_> = args.iter().collect();
-    let generated = match generate(format_lit, &explicit_args) {
+    let generated = match generate(
+        format_lit,
+        &explicit_args,
+        !matches!(source, Source::Expression(_)),
+    ) {
         Ok(generated) => generated,
         Err(error) => return error.to_compile_error().into(),
     };
@@ -422,7 +544,7 @@ pub fn expand(
     let span = internal_span();
     let declarations = generated.declarations();
     let statements = &generated.statements;
-    let finish = generated.finish();
+    let finish = generated.finish(&source.consume(generated.partial));
     let body = source.bind_remaining(quote_spanned! {span=>
         #(#statements)*
         #finish
@@ -443,7 +565,7 @@ mod tests {
     fn statements(format: &str, args: &[Expr]) -> syn::Result<Generated> {
         let format_lit = LitStr::new(format, Span::call_site());
         let args: Vec<&Expr> = args.iter().collect();
-        generate(&format_lit, &args)
+        generate(&format_lit, &args, false)
     }
 
     #[test]

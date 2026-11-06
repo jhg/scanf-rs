@@ -86,7 +86,7 @@ assert_eq!(product, "Candy");
 ### Reading from any reader
 
 `fscanf!` is `sscanf!` for readers. It takes any `BufRead` first, borrowed mutably like the
-writer of `write!`, and each call consumes one line:
+writer of `write!`, and each call reads from the current line:
 
 ```rust
 use scanf::fscanf;
@@ -103,10 +103,32 @@ fscanf!(input, "{name}: {score}").unwrap();
 assert_eq!((name.as_str(), score), ("Bob", 7.0));
 ```
 
-A call always consumes the whole line, even if the format only uses part of it or the line
-does not match; the next call starts on the next line. When the reader has no more lines the
-call fails with `UnexpectedEof`, and a line that is not valid UTF-8 fails with `InvalidData`.
-Errors from the reader itself are passed on unchanged.
+A call consumes what matched. When the format ends with a placeholder, text after a value
+that parses stays for the next call, so numbers on one line can be read one call at a time:
+
+```rust
+use scanf::fscanf;
+use std::io::Cursor;
+
+let mut input = Cursor::new("1 2\n3\n");
+
+let a: i32 = fscanf!(input, "{}").unwrap();
+let b: i32 = fscanf!(input, " {}").unwrap();
+let c: i32 = fscanf!(input, "{}").unwrap();
+assert_eq!((a, b, c), (1, 2, 3));
+```
+
+A value must end at whitespace or at the end of the line: `12 abc` read as a number is `12`,
+while `12abc` is an error. A call that fails consumes nothing, so skip the line yourself
+before retrying. Without a number (a `String`, or a format ending in text) the call takes the
+rest of the line. When the reader has no more input the call fails with `UnexpectedEof`, and
+a line that is not valid UTF-8 fails with `InvalidData`. Errors from the reader itself are
+passed on unchanged.
+
+A reader only shows what it has buffered. If the end of the line is not in the buffer (a tiny
+`BufReader`, or a last line with no line ending) the whole line is read instead, and nothing
+is left over, even when the call fails. `fscanf!` needs a `BufRead`, so lock stdin
+(`stdin().lock()`) rather than passing `stdin()`.
 
 `scanf!` locks stdin on every call. If your code already holds a `stdin().lock()`, a call to
 `scanf!` on the same thread waits forever, because that lock is not reentrant. Read from the

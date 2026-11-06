@@ -123,12 +123,13 @@ mod lines {
     }
 
     #[test]
-    fn the_line_is_consumed_even_when_parsing_fails() {
+    fn nothing_is_consumed_when_parsing_fails() {
         let mut input = Cursor::new("x\n2\n");
         let failed: std::io::Result<i32> = fscanf!(input, "{}");
         assert_eq!(failed.unwrap_err().kind(), ErrorKind::InvalidInput);
-        let next: i32 = fscanf!(input, "{}").unwrap();
-        assert_eq!(next, 2);
+        let mut line = String::new();
+        input.read_line(&mut line).unwrap();
+        assert_eq!(line, "x\n");
     }
 }
 

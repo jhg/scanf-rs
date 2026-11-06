@@ -28,6 +28,22 @@ fn run_case(case: &str) -> String {
             let second: std::io::Result<String> = scanf!("{}");
             format!("{} {}", describe(first), describe(second))
         }
+        "two_numbers_on_one_line" => {
+            let first: std::io::Result<i32> = scanf!("{}");
+            let second: std::io::Result<i32> = scanf!(" {}");
+            let third: std::io::Result<i32> = scanf!("{}");
+            format!(
+                "{} {} {}",
+                describe(first),
+                describe(second),
+                describe(third)
+            )
+        }
+        "failure_leaves_the_line" => {
+            let failed: std::io::Result<i32> = scanf!("{}");
+            let line: std::io::Result<String> = scanf!("{}");
+            format!("{} {}", describe(failed).starts_with("Err"), describe(line))
+        }
         "named" => {
             let mut number: i32 = 0;
             let result = scanf!("x={number}");
@@ -66,7 +82,7 @@ fn run_case(case: &str) -> String {
             )
         }
         "fscanf_on_stdin_handle" => {
-            let stdin = std::io::stdin();
+            let mut stdin = std::io::stdin().lock();
             let n: std::io::Result<i32> = fscanf!(stdin, "{}");
             describe(n)
         }
@@ -175,10 +191,22 @@ const CASES: &[Case] = &[
         expected: "Ok(\"one\") Ok((2, 3)) Err(UnexpectedEof)",
     },
     Case {
-        name: "fscanf_accepts_the_stdin_handle",
+        name: "fscanf_accepts_a_stdin_lock",
         case: "fscanf_on_stdin_handle",
         stdin: b"12\n",
         expected: "Ok(12)",
+    },
+    Case {
+        name: "two_numbers_on_one_line",
+        case: "two_numbers_on_one_line",
+        stdin: b"1 2\n3\n",
+        expected: "Ok(1) Ok(2) Ok(3)",
+    },
+    Case {
+        name: "a_failed_scanf_leaves_the_line",
+        case: "failure_leaves_the_line",
+        stdin: b"12abc\n",
+        expected: "true Ok(\"12abc\")",
     },
     Case {
         name: "explicit_argument",

@@ -62,9 +62,15 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 ///
 /// The reader is any `BufRead` (a `Cursor`, a `&[u8]`, a `BufReader`, a locked stdin) and is
 /// borrowed mutably, as the writer of `write!` is, so it is not moved and can be used again.
-/// Each call consumes one line, removing its line ending (`\n`, `\r\n` or a lone `\r`), and
-/// fails with `UnexpectedEof` when there is none left. If the line does not match the format
-/// it is consumed anyway. Formats, placeholders and results work as in `sscanf!`.
+/// A call reads from the current line and consumes what matched, with the line ending (`\n`,
+/// `\r\n` or a lone `\r`) once nothing of the line is left. When the format ends with a
+/// placeholder, text after a value that parses stays for the next call (`12 abc` read as a
+/// number leaves ` abc`; `12abc` is an error). A call that fails consumes nothing. It fails
+/// with `UnexpectedEof` when there is no input left. Formats, placeholders and results work
+/// as in `sscanf!`.
+///
+/// A reader only shows what it has buffered. If the end of the line is not in the buffer the
+/// whole line is read instead, and then nothing is left over, even on failure.
 ///
 /// # Examples
 ///
@@ -95,8 +101,9 @@ pub fn fscanf(input: TokenStream) -> TokenStream {
 ///
 /// Syntax: `scanf!("format")`
 ///
-/// Flushes stdout, reads a line and parses it (the line ending is removed). Fails with
-/// `UnexpectedEof` when stdin has no more input.
+/// Flushes stdout, reads from the current line of stdin and parses it, with the rules of
+/// `fscanf!`: text left after a final number stays for the next call and a failed call
+/// consumes nothing. Fails with `UnexpectedEof` when stdin has no more input.
 ///
 /// It locks stdin for the duration of the call, so it must not be used while the same thread
 /// holds a `stdin().lock()`: the lock is not reentrant and the call would wait forever. In that
