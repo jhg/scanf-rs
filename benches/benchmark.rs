@@ -1,10 +1,8 @@
-#![allow(unused_must_use)]
-
-use std::{any::Any, error::Error, hint::black_box, str::FromStr};
+use std::{error::Error, hint::black_box, str::FromStr};
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 
-use scanf::sscanf;
+use scanf::{fscanf, sscanf};
 
 const U16_NUMBERS_SEPARATED_BY_COMMAS: [&str; 5] = [
     "1,2,3,4,5,6,7,8,9,0",
@@ -14,9 +12,7 @@ const U16_NUMBERS_SEPARATED_BY_COMMAS: [&str; 5] = [
     "56981,52353,13123,14241,24445,03466,42357,24658,63469,18760",
 ];
 
-fn sscanf_10_same_elements_of<T: Default + FromStr + Any>(
-    input: &str,
-) -> (T, T, T, T, T, T, T, T, T, T)
+fn sscanf_10_same_elements_of<T: Default + FromStr>(input: &str) -> (T, T, T, T, T, T, T, T, T, T)
 where
     <T as FromStr>::Err: Error + Send + Sync,
 {
@@ -44,7 +40,7 @@ where
         T::default(),
     );
     sscanf!(
-        input,
+        black_box(input),
         "{},{},{},{},{},{},{},{},{},{}",
         &mut number0,
         &mut number1,
@@ -71,14 +67,16 @@ fn sscanf_benchmark(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("Split with sscanf", |b| {
         b.iter(|| {
-            sscanf!(input, "{} {}", &mut product, &mut price);
+            sscanf!(black_box(input), "{} {}", &mut product, &mut price).unwrap();
+            black_box((&product, &price));
         })
     });
-    group.bench_function("Split with str::split", |b| {
+    group.bench_function("Split with str::split_once", |b| {
         b.iter(|| {
-            let mut split = input.split_whitespace();
-            product = split.next().unwrap().to_string();
-            price = split.next().unwrap().to_string();
+            let (first, second) = black_box(input).split_once(' ').unwrap();
+            product = first.to_string();
+            price = second.to_string();
+            black_box((&product, &price));
         })
     });
     group.finish();
@@ -89,27 +87,27 @@ fn sscanf_benchmark(c: &mut Criterion) {
         group.bench_with_input(
             format!("Sscanf u16 as u16 separated by commas {}", i),
             input,
-            |b, input| b.iter(|| sscanf_10_same_elements_of::<u16>(input)),
+            |b, input| b.iter(|| sscanf_10_same_elements_of::<u16>(black_box(input))),
         );
         group.bench_with_input(
             format!("Sscanf u16 as u32 separated by commas {}", i),
             input,
-            |b, input| b.iter(|| sscanf_10_same_elements_of::<u32>(input)),
+            |b, input| b.iter(|| sscanf_10_same_elements_of::<u32>(black_box(input))),
         );
         group.bench_with_input(
             format!("Sscanf u16 as u64 separated by commas {}", i),
             input,
-            |b, input| b.iter(|| sscanf_10_same_elements_of::<u64>(input)),
+            |b, input| b.iter(|| sscanf_10_same_elements_of::<u64>(black_box(input))),
         );
         group.bench_with_input(
             format!("Sscanf u16 as u128 separated by commas {}", i),
             input,
-            |b, input| b.iter(|| sscanf_10_same_elements_of::<u128>(input)),
+            |b, input| b.iter(|| sscanf_10_same_elements_of::<u128>(black_box(input))),
         );
         group.bench_with_input(
             format!("Sscanf u16 as String separated by commas {}", i),
             input,
-            |b, input| b.iter(|| sscanf_10_same_elements_of::<String>(input)),
+            |b, input| b.iter(|| sscanf_10_same_elements_of::<String>(black_box(input))),
         );
     }
     group.finish();
@@ -118,7 +116,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf i32", |b| {
         b.iter(|| {
             let mut first_number: i32 = 0;
-            sscanf!(input, "{}", &mut first_number);
+            sscanf!(black_box(input), "{}", &mut first_number).unwrap();
             black_box(first_number);
         })
     });
@@ -127,7 +125,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf i64", |b| {
         b.iter(|| {
             let mut first_number: i64 = 0;
-            sscanf!(input, "{}", &mut first_number);
+            sscanf!(black_box(input), "{}", &mut first_number).unwrap();
             black_box(first_number);
         })
     });
@@ -136,7 +134,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf u32", |b| {
         b.iter(|| {
             let mut first_number: u32 = 0;
-            sscanf!(input, "{}", &mut first_number);
+            sscanf!(black_box(input), "{}", &mut first_number).unwrap();
             black_box(first_number);
         })
     });
@@ -145,7 +143,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf u64", |b| {
         b.iter(|| {
             let mut first_number: u64 = 0;
-            sscanf!(input, "{}", &mut first_number);
+            sscanf!(black_box(input), "{}", &mut first_number).unwrap();
             black_box(first_number);
         })
     });
@@ -154,7 +152,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf f32", |b| {
         b.iter(|| {
             let mut first_number: f32 = 0.0;
-            sscanf!(input, "{}", &mut first_number);
+            sscanf!(black_box(input), "{}", &mut first_number).unwrap();
             black_box(first_number);
         })
     });
@@ -163,7 +161,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf f64", |b| {
         b.iter(|| {
             let mut first_number: f64 = 0.0;
-            sscanf!(input, "{}", &mut first_number);
+            sscanf!(black_box(input), "{}", &mut first_number).unwrap();
             black_box(first_number);
         })
     });
@@ -172,7 +170,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf string", |b| {
         b.iter(|| {
             let mut product: String = String::new();
-            sscanf!(input, "{}", &mut product);
+            sscanf!(black_box(input), "{}", &mut product).unwrap();
             black_box(product);
         })
     });
@@ -181,7 +179,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf string with brackets", |b| {
         b.iter(|| {
             let mut product: String = String::new();
-            sscanf!(input, "{}", &mut product);
+            sscanf!(black_box(input), "{}", &mut product).unwrap();
             black_box(product);
         })
     });
@@ -190,7 +188,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf string with brackets ignored", |b| {
         b.iter(|| {
             let mut product: String = String::new();
-            sscanf!(input, "{{{}}}", &mut product);
+            sscanf!(black_box(input), "{{{}}}", &mut product).unwrap();
             black_box(product);
         })
     });
@@ -200,7 +198,7 @@ fn sscanf_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let mut product: String = String::new();
             let mut price: f64 = 0.0;
-            sscanf!(input, "{} -> {}", &mut product, &mut price);
+            sscanf!(black_box(input), "{} -> {}", &mut product, &mut price).unwrap();
             black_box(product);
             black_box(price);
         })
@@ -211,7 +209,13 @@ fn sscanf_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let mut first_number: u32 = 0;
             let mut second_number: f64 = 0.0;
-            sscanf!(input, "{} -> {}", &mut first_number, &mut second_number);
+            sscanf!(
+                black_box(input),
+                "{} -> {}",
+                &mut first_number,
+                &mut second_number
+            )
+            .unwrap();
             black_box(first_number);
             black_box(second_number);
         })
@@ -224,12 +228,13 @@ fn sscanf_benchmark(c: &mut Criterion) {
             let mut name: String = String::new();
             let mut price: f64 = 0.0;
             sscanf!(
-                input,
+                black_box(input),
                 "id={};name={};price={}",
                 &mut id,
                 &mut name,
                 &mut price
-            );
+            )
+            .unwrap();
             black_box((id, &name, price));
         })
     });
@@ -238,11 +243,116 @@ fn sscanf_benchmark(c: &mut Criterion) {
     c.bench_function("Sscanf colon separated u8 x3", |b| {
         b.iter(|| {
             let (mut h, mut m, mut s) = (0u8, 0u8, 0u8);
-            sscanf!(input, "{}:{}:{}", &mut h, &mut m, &mut s);
+            sscanf!(black_box(input), "{}:{}:{}", &mut h, &mut m, &mut s).unwrap();
             black_box((h, m, s));
         })
     });
 }
 
-criterion_group!(benches, sscanf_benchmark);
+criterion_group!(benches, sscanf_benchmark, representative_benchmarks);
 criterion_main!(benches);
+
+// Keep equivalent workloads together: each consumes a runtime input and returns its result.
+fn representative_benchmarks(c: &mut Criterion) {
+    let mut scalar = c.benchmark_group("scalar");
+    scalar.bench_function("sscanf_return_u32", |b| {
+        b.iter(|| {
+            let value: u32 = sscanf!(black_box("123456"), "{}").unwrap();
+            value
+        })
+    });
+    scalar.bench_function("str_parse_u32", |b| {
+        b.iter(|| black_box("123456").parse::<u32>().unwrap())
+    });
+    scalar.finish();
+
+    let mut record = c.benchmark_group("record");
+    record.bench_function("return", |b| {
+        b.iter(|| {
+            let values: (u32, u32, u32) = sscanf!(black_box("12:34:56"), "{}:{}:{}").unwrap();
+            values
+        })
+    });
+    record.bench_function("named", |b| {
+        b.iter(|| {
+            let (mut h, mut m, mut s) = (0u32, 0u32, 0u32);
+            sscanf!(black_box("12:34:56"), "{h}:{m}:{s}").unwrap();
+            (h, m, s)
+        })
+    });
+    record.bench_function("explicit", |b| {
+        b.iter(|| {
+            let (mut h, mut m, mut s) = (0u32, 0u32, 0u32);
+            sscanf!(black_box("12:34:56"), "{}:{}:{}", &mut h, &mut m, &mut s).unwrap();
+            (h, m, s)
+        })
+    });
+    record.bench_function("split_once_parse", |b| {
+        b.iter(|| {
+            let (h, rest) = black_box("12:34:56").split_once(':').unwrap();
+            let (m, s) = rest.split_once(':').unwrap();
+            (
+                h.parse::<u32>().unwrap(),
+                m.parse::<u32>().unwrap(),
+                s.parse::<u32>().unwrap(),
+            )
+        })
+    });
+    record.finish();
+
+    let mut errors = c.benchmark_group("errors");
+    errors.bench_function("invalid_number", |b| {
+        b.iter(|| {
+            let result: std::io::Result<(u32, u32)> = sscanf!(black_box("12:invalid"), "{}:{}");
+            result.unwrap_err()
+        })
+    });
+    errors.bench_function("missing_separator", |b| {
+        b.iter(|| {
+            let result: std::io::Result<(u32, u32)> = sscanf!(black_box("123456"), "{}:{}");
+            result.unwrap_err()
+        })
+    });
+    errors.bench_function("trailing_input", |b| {
+        b.iter(|| {
+            let result: std::io::Result<u32> = sscanf!(black_box("42 units extra"), "{} units");
+            // With ignore-trailing-input enabled this is a successful parse.
+            result
+        })
+    });
+    errors.finish();
+
+    let mut separators = c.benchmark_group("separators");
+    for length in [16, 4096] {
+        for (name, separator) in [("ascii", ":"), ("unicode", "→"), ("multi", " -> ")] {
+            let input = format!("{}{separator}42", "x".repeat(length));
+            separators.throughput(Throughput::Bytes(input.len() as u64));
+            separators.bench_function(format!("{name}/{length}"), |b| {
+                b.iter(|| {
+                    let result: (String, u32) = match name {
+                        "ascii" => sscanf!(black_box(&input), "{}:{}").unwrap(),
+                        "unicode" => sscanf!(black_box(&input), "{}→{}").unwrap(),
+                        _ => sscanf!(black_box(&input), "{} -> {}").unwrap(),
+                    };
+                    result
+                })
+            });
+        }
+    }
+    separators.finish();
+
+    c.bench_function("reader/fscanf_cursor", |b| {
+        b.iter(|| {
+            let mut reader = std::io::Cursor::new(black_box("12:34:56\n"));
+            let values: (u32, u32, u32) = fscanf!(reader, "{}:{}:{}").unwrap();
+            values
+        })
+    });
+    #[cfg(feature = "trim-whitespace")]
+    c.bench_function("features/trim_retry", |b| {
+        b.iter(|| {
+            let value: u32 = sscanf!(black_box(" 123456 "), "{}").unwrap();
+            value
+        })
+    });
+}
