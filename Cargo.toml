@@ -2,7 +2,7 @@
 name = "scanf"
 description = "Parse text inputs (inverse of print! and format!)"
 version = "2.2.0"
-keywords = ["scanf", "sscanf", "parsing", "macro", "format"]
+keywords = ["scanf", "sscanf", "fscanf", "parsing", "macro"]
 categories = ["parsing", "text-processing"]
 readme = "README.md"
 license = "Unlicense"
@@ -12,6 +12,7 @@ exclude = [
     ".github/**",
     ".vscode/**",
     ".idea/**",
+    "docs/**",
     "benches/**",
     "Cargo.lock",
     ".gitignore",

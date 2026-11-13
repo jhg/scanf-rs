@@ -1,11 +1,11 @@
 # Scanf
 
-`scanf!` and `sscanf!` for Rust, in the style of C's `scanf`: parse text according to a format string, the inverse of `print!` and `format!`.
+`scanf!`, `sscanf!` and `fscanf!` for Rust: parse text according to a format string, the inverse of `print!` and `format!`.
 
 ## Usage
 
-`sscanf!` parses a string and `scanf!` reads one line from stdin, with the same format syntax.
-There are two ways to get the values out, and both work with either macro.
+`sscanf!` parses a string, `scanf!` reads from stdin and `fscanf!` reads from any reader, with the
+same format syntax. There are two ways to get the values out, and they work with all three macros.
 
 ### Returning the values
 
