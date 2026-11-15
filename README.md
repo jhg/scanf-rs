@@ -119,7 +119,8 @@ assert_eq!((a, b, c), (1, 2, 3));
 ```
 
 A value must end at whitespace or at the end of the line: `12 abc` read as a number is `12`,
-while `12abc` is an error. A call that fails consumes nothing, so skip the line yourself
+while `12abc` is an error. Only the first 16 whitespace boundaries of the line are tried as
+the end of a value, so a failing line costs a bounded amount of work. A call that fails consumes nothing, so skip the line yourself
 before retrying. Without a number (a `String`, or a format ending in text) the call takes the
 rest of the line. When the reader has no more input the call fails with `UnexpectedEof`, and
 a line that is not valid UTF-8 fails with `InvalidData`. Errors from the reader itself are

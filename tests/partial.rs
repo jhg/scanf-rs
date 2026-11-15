@@ -194,3 +194,83 @@ mod lines_the_buffer_does_not_show_whole {
         assert_eq!(n, 12);
     }
 }
+
+mod reader_edge_cases {
+    use super::*;
+    use std::str::FromStr;
+    use std::time::{Duration, Instant};
+
+    /// A `BufRead` whose first `fill_buf` is interrupted, as a signal can do to a read.
+    struct InterruptedOnce {
+        data: &'static [u8],
+        interrupted: bool,
+    }
+
+    impl std::io::Read for InterruptedOnce {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let n = self.data.len().min(buf.len());
+            buf[..n].copy_from_slice(&self.data[..n]);
+            self.data = &self.data[n..];
+            Ok(n)
+        }
+    }
+
+    impl BufRead for InterruptedOnce {
+        fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+            if !self.interrupted {
+                self.interrupted = true;
+                return Err(ErrorKind::Interrupted.into());
+            }
+            Ok(self.data)
+        }
+
+        fn consume(&mut self, amount: usize) {
+            self.data = &self.data[amount..];
+        }
+    }
+
+    #[test]
+    fn an_interrupted_read_is_retried() {
+        let mut input = InterruptedOnce {
+            data: b"12 abc\n",
+            interrupted: false,
+        };
+        let n: i32 = fscanf!(input, "{}").unwrap();
+        assert_eq!(n, 12);
+    }
+
+    /// Its `FromStr` fails slowly: it looks at the whole text before rejecting it.
+    struct Slow;
+
+    impl FromStr for Slow {
+        type Err = String;
+
+        fn from_str(text: &str) -> Result<Self, String> {
+            let letters = text.chars().filter(|c| c.is_alphabetic()).count();
+            Err(format!("rejected after {letters} letters"))
+        }
+    }
+
+    #[test]
+    fn a_long_line_of_words_that_never_parse_fails_in_reasonable_time() {
+        let line = "a ".repeat(20_000);
+        let data = format!("{line}\n");
+        let mut input = Cursor::new(data.as_str());
+        let started = Instant::now();
+        let result: std::io::Result<Slow> = fscanf!(input, "{}");
+        assert!(result.is_err());
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "took {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn invalid_utf8_after_the_matched_part_fails_and_consumes_nothing() {
+        let mut input: &[u8] = b"12 \xff\n";
+        let result: std::io::Result<i32> = fscanf!(input, "{}");
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
+        assert_eq!(input, b"12 \xff\n");
+    }
+}

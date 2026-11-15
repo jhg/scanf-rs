@@ -65,7 +65,8 @@ pub fn sscanf(input: TokenStream) -> TokenStream {
 /// A call reads from the current line and consumes what matched, with the line ending (`\n`,
 /// `\r\n` or a lone `\r`) once nothing of the line is left. When the format ends with a
 /// placeholder, text after a value that parses stays for the next call (`12 abc` read as a
-/// number leaves ` abc`; `12abc` is an error). A call that fails consumes nothing. It fails
+/// number leaves ` abc`; `12abc` is an error; a value that has whitespace inside can end at
+/// most 16 whitespace boundaries into the line). A call that fails consumes nothing. It fails
 /// with `UnexpectedEof` when there is no input left. Formats, placeholders and results work
 /// as in `sscanf!`.
 ///

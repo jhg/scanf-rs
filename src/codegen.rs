@@ -312,13 +312,19 @@ fn final_placeholder_statement(target: &Target) -> TokenStream2 {
     }
 }
 
+/// How many whitespace boundaries `partial_final_placeholder_statement` tries as the end of a
+/// value, nearest to the start first, so a failing line costs a bounded number of parses
+/// instead of one per word.
+const MAX_PREFIX_CANDIDATES: usize = 16;
+
 /// Last placeholder of a reader: takes the whole rest of the line when that parses, otherwise
 /// the longest prefix that parses and is followed by whitespace, so `12 abc` read as a number
 /// is `12` and ` abc` stays for the next call. Nothing is consumed here; the reader only gives
 /// up what matched once the whole call has succeeded.
 ///
 /// The macro cannot know the target type, so it tries the candidates in order and keeps the
-/// first success. If none parses, the error is the one of the whole rest.
+/// first success, at most `MAX_PREFIX_CANDIDATES` of them besides the whole rest. If none
+/// parses, the error is the one of the whole rest.
 fn partial_final_placeholder_statement(target: &Target) -> TokenStream2 {
     let Target { value, description } = target;
     let span = internal_span();
@@ -336,24 +342,28 @@ fn partial_final_placeholder_statement(target: &Target) -> TokenStream2 {
         {
             let mut first_error = ::core::option::Option::None;
             let mut matched = ::core::option::Option::None;
-            let ends = ::core::iter::once(remaining.len()).chain(
-                remaining
-                    .char_indices()
-                    .rev()
-                    .filter(|&(index, ch)| index > 0 && ch.is_whitespace())
-                    .map(|(index, _)| index),
-            );
-            for end in ends {
-                let #text = &remaining[..end];
+            {
+                let #text = remaining;
                 match #parse_expr {
                     ::core::result::Result::Ok(parsed) => {
+                        matched = ::core::option::Option::Some((parsed, remaining.len()));
+                    }
+                    ::core::result::Result::Err(error) => first_error = ::core::option::Option::Some(error),
+                }
+            }
+            if matched.is_none() {
+                let mut ends: ::std::vec::Vec<usize> = remaining
+                    .char_indices()
+                    .filter(|&(index, ch)| index > 0 && ch.is_whitespace())
+                    .map(|(index, _)| index)
+                    .take(#MAX_PREFIX_CANDIDATES)
+                    .collect();
+                ends.reverse();
+                for end in ends {
+                    let #text = &remaining[..end];
+                    if let ::core::result::Result::Ok(parsed) = #parse_expr {
                         matched = ::core::option::Option::Some((parsed, end));
                         break;
-                    }
-                    ::core::result::Result::Err(error) => {
-                        if first_error.is_none() {
-                            first_error = ::core::option::Option::Some(error);
-                        }
                     }
                 }
             }
@@ -484,21 +494,32 @@ fn peek_line_into_remaining(reader: &TokenStream2, body: TokenStream2) -> TokenS
         // A method call, so the reader is borrowed automatically (as in `write!`): a variable,
         // a `&mut` reference or a temporary all work without being declared `mut`.
         trait Reborrow {
-            fn reborrow(&mut self) -> &mut Self;
+            fn scanf_reborrow(&mut self) -> &mut Self;
+            /// What is buffered, retrying a read a signal interrupted as `read_line` does.
+            fn scanf_peek(&mut self) -> ::std::io::Result<&[u8]>;
         }
         impl<T: ::std::io::BufRead + ?::core::marker::Sized> Reborrow for T {
-            fn reborrow(&mut self) -> &mut Self {
+            fn scanf_reborrow(&mut self) -> &mut Self {
                 self
             }
+            fn scanf_peek(&mut self) -> ::std::io::Result<&[u8]> {
+                // Checked first because returning the borrow from inside the loop is rejected.
+                while let ::core::result::Result::Err(error) = self.fill_buf() {
+                    if error.kind() != ::std::io::ErrorKind::Interrupted {
+                        return ::core::result::Result::Err(error);
+                    }
+                }
+                self.fill_buf()
+            }
         }
-        match (#reader).reborrow() {
+        match (#reader).scanf_reborrow() {
             reader => {
                 use ::std::io::BufRead as _;
-                let newline = reader.fill_buf()?.iter().position(|&byte| byte == b'\n');
+                let newline = reader.scanf_peek()?.iter().position(|&byte| byte == b'\n');
                 let peeked = newline.is_some();
                 let mut owned = ::std::vec::Vec::new();
                 let (bytes, line_ending): (&[u8], usize) = match newline {
-                    ::core::option::Option::Some(end) => (&reader.fill_buf()?[..end], 1),
+                    ::core::option::Option::Some(end) => (&reader.scanf_peek()?[..end], 1),
                     ::core::option::Option::None => {
                         if reader.read_until(b'\n', &mut owned)? == 0 {
                             return ::core::result::Result::Err(::std::io::Error::new(
