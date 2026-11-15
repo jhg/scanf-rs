@@ -128,3 +128,35 @@ fn peek_line_into_remaining(reader: &TokenStream2, body: TokenStream2) -> TokenS
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn a_string_gives_up_nothing() {
+        let expr: Expr = parse_quote!("12 abc");
+        assert!(Source::Expression(&expr).consume(false).is_empty());
+        assert!(Source::Expression(&expr).consume(true).is_empty());
+    }
+
+    #[test]
+    fn a_reader_gives_up_the_whole_line_unless_the_format_may_leave_input() {
+        let reader: Expr = parse_quote!(input);
+        let whole_line = Source::Reader(&reader).consume(false).to_string();
+        let matched_only = Source::Reader(&reader).consume(true).to_string();
+        assert!(whole_line.contains("text_len + tail"));
+        assert!(!whole_line.contains("remaining"));
+        assert!(matched_only.contains("remaining . len ()"));
+    }
+
+    #[test]
+    fn stdin_follows_the_same_rule_as_a_reader() {
+        let reader: Expr = parse_quote!(input);
+        assert_eq!(
+            Source::Stdin.consume(true).to_string(),
+            Source::Reader(&reader).consume(true).to_string()
+        );
+    }
+}

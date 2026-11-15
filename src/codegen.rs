@@ -588,4 +588,17 @@ mod tests {
     fn escaped_braces_between_placeholders_separate_them() {
         assert!(statements("{}{{}}{}", &[]).is_ok());
     }
+
+    #[test]
+    fn only_a_reader_format_ending_in_a_placeholder_may_leave_input() {
+        let lit = |format: &str| LitStr::new(format, Span::call_site());
+        let partial = |format: &str, reads_a_stream: bool| {
+            generate(&lit(format), &[], reads_a_stream).unwrap().partial
+        };
+        assert!(partial("{}", true));
+        assert!(partial("{} and {}", true));
+        assert!(!partial("{}", false));
+        assert!(!partial("{} units", true));
+        assert!(!partial("x={}!", true));
+    }
 }
