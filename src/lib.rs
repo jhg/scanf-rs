@@ -3,6 +3,7 @@
 
 mod codegen;
 mod parsing;
+mod source;
 mod tokenization;
 mod types;
 mod validation;
@@ -10,8 +11,9 @@ mod validation;
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
-use codegen::{Source, expand};
+use codegen::expand;
 use parsing::{ScanfArgs, SourceArgs};
+use source::Source;
 
 /// Parse a string with a format string, similar to C's `sscanf`.
 ///
